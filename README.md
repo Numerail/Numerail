@@ -53,8 +53,9 @@ every active constraint to within tolerance τ.
 This holds for all proposed inputs, all constraint combinations, and all solver
 implementations. The guarantee is proved in
 [`packages/numerail/proof/PROOF.md`](packages/numerail/proof/PROOF.md) and
-independently verified by 3,732 machine-checked assertions and 45 certification
-tests.
+independently verified by 3,732 machine-checked assertions, 45 certification
+tests, and a 99-test mathematical guarantee analysis suite that independently
+verifies every theorem against the live codebase.
 
 ---
 
@@ -76,7 +77,7 @@ packages/numerail/
 | Python | ≥ 3.9 |
 | Dependencies | numpy ≥ 1.21, scipy ≥ 1.7 |
 | License | MIT |
-| Tests | 153 passing |
+| Tests | 252 passing |
 | Proof checks | 3,732 passing |
 
 Provides the enforcement guarantee, four convex constraint types (linear,
@@ -143,11 +144,14 @@ pip install -e .
 ## Verification
 
 ```bash
-# Core — full test suite (153 tests)
+# Core — full test suite (252 tests)
 cd packages/numerail && pytest tests/ -v
 
 # Core — guarantee certification only (45 tests)
 cd packages/numerail && pytest tests/test_guarantee.py -v
+
+# Core — mathematical guarantee analysis (99 tests, one per proof claim)
+cd packages/numerail && pytest tests/test_mathematical_guarantees.py -v
 
 # Core — machine-verifiable proof checker (3,732 checks)
 cd packages/numerail && python proof/verify_proof.py
@@ -171,7 +175,9 @@ numerail/                        ← repository root
         local.py                 ← in-memory local mode
         protocols.py             ← typed Protocol interfaces
         errors.py                ← production-layer exceptions
-      tests/                     ← 153 tests
+      tests/                     ← 252 tests
+        test_guarantee.py        ← 45 certification tests (proof/PROOF.md §Theorem 1–9)
+        test_mathematical_guarantees.py ← 99 guarantee analysis tests (one per proof claim)
       proof/                     ← PROOF.md + verify_proof.py (3,732 checks)
       docs/                      ← DEVELOPER_GUIDE, GUARANTEE, SPECIFICATION,
       examples/                  ←   DEPLOYMENT, REFERENCE
