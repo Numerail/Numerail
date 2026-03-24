@@ -32,7 +32,7 @@ The guarantee is proved in `packages/numerail/proof/PROOF.md` (Axiom 1, Lemmas 1
 ## Repository Layout
 
 ```
-numerail-repo/                       ← repository root
+numerail-repo/                       ← repository root (tagged v5.0.0 / ext v0.4.0)
   packages/
     numerail/                        ← core enforcement kernel (v5.0.0)
       src/numerail/
@@ -54,8 +54,11 @@ numerail-repo/                       ← repository root
         DEPLOYMENT.md                ← production deployment guide
         REFERENCE.md                 ← API reference
       examples/
-        ai_resource_governor.py      ← base AI governance example
+        ai_resource_governor.py      ← base AI governance example (8-field policy, all 4 constraint types)
         ai_circuit_breaker.py        ← control-plane reserve pattern
+        autonomous_agent_governor.py ← 20-step simulation: breaker transitions, budget depletion, rollback
+        rest_api_server.py           ← FastAPI server wrapping NumerailSystemLocal (3 endpoints)
+        rest_api_client.py           ← stdlib-only client exercising all three server endpoints
     numerail_ext/                    ← survivability extension (v0.4.0), requires numerail ≥ 5.0.0
       src/numerail_ext/survivability/
         breaker.py                   ← BreakerStateMachine
@@ -68,7 +71,9 @@ numerail-repo/                       ← repository root
         validation.py                ← validate_receipt_against_grant()
         types.py                     ← shared data types and Protocols
       tests/                         ← 207 tests
-  .github/workflows/                 ← CI
+  .github/workflows/
+    ci.yml                           ← CI: checkout@v5, setup-python@v6, Python 3.9–3.12
+    release.yml                      ← PyPI trusted publishing on v* tag push
   CHANGELOG.md
   README.md
 ```
@@ -94,6 +99,52 @@ Install before testing:
 cd packages/numerail && pip install -e .
 cd packages/numerail_ext && pip install -e .
 ```
+
+## Common Claude Code Tasks — Safe vs. Proof-Checker-Required
+
+### Safe to edit without running the proof checker
+
+These changes live outside the enforcement control flow. Run the full test suite
+(`pytest tests/ -v`) afterward, but `verify_proof.py` and `test_guarantee.py`
+are not strictly required.
+
+| What | Why it's safe |
+|------|---------------|
+| `examples/` files | Demonstration code; no path into the kernel's enforcement logic |
+| `docs/` files | Documentation only |
+| `service.py`, `local.py`, `errors.py` | Production / convenience layers that call `engine.py` but don't modify it |
+| `parser.py` | Config parsing; the kernel validates the parsed config itself |
+| `numerail_ext/` (any file) | Extension layer; controls *which* policy the kernel enforces, not *how* |
+| `.github/workflows/` | CI / CD plumbing |
+| `pyproject.toml`, `README.md`, `CHANGELOG.md` | Packaging and docs |
+| New tests that only call the public API | Tests cannot weaken the guarantee |
+
+### Always run `proof/verify_proof.py` and `tests/test_guarantee.py` after these
+
+Any change to `engine.py` — no exceptions. Specifically:
+
+| Touch point in `engine.py` | Risk |
+|-----------------------------|------|
+| `enforce()` control flow (APPROVE / PROJECT / REJECT branches) | Could create a path that returns APPROVE/PROJECT without a feasibility check — directly breaks Theorem 1 |
+| `_out()` (the emit-path function) | The defense-in-depth `raise AssertionError` must fire before output construction; reordering breaks Lemma 3 |
+| `project()` and `postcheck_passed` | Lemma 2 depends on `postcheck_passed = True` being set only after `is_feasible` confirms the projected point |
+| `FeasibleRegion.is_feasible` or any `is_satisfied` method | Lemma 1 requires the conjunction of *all* constraints; skipping or caching any one of them breaks the guarantee |
+| Solver tolerance (`solver_tol`) or the `τ`-relaxation value | Widening τ relaxes the guarantee; tightening it can cause false REJECTs |
+| Any new constraint type added to the kernel | Must implement `is_satisfied` correctly for Axiom 1 to hold for that type |
+
+**Command to run after any `engine.py` edit:**
+```bash
+cd packages/numerail
+python proof/verify_proof.py && pytest tests/test_guarantee.py -v
+```
+
+### Things to never do regardless of where the edit is
+
+- Add a code path in `engine.py` that returns APPROVE or PROJECT without calling `effective.is_feasible()` first.
+- Convert the explicit `raise AssertionError(...)` in `_out()` to a bare `assert` statement (strips under `python -O`).
+- Add an import to `engine.py` that pulls in `service.py`, `local.py`, or any production-layer module.
+- Let model/agent output influence constraint construction, tolerance values, or trusted-field injection.
+- Add fallback logic that permits an action when constraints are missing or ambiguous.
 
 ## Architectural Invariants — Never Violate These
 
