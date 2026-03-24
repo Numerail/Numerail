@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  id-token: write   # required for OIDC trusted publishing
+
+jobs:
+  # ── verify ──────────────────────────────────────────────────────────────
+  # Full test + proof suite must pass before any package is published.
+  verify-core:
+    name: "Verify numerail (Python ${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/numerail
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      - run: pytest tests/ -v --tb=short
+      - run: pytest tests/test_guarantee.py -v --tb=short
+      - run: python proof/verify_proof.py
+
+  verify-ext:
+    name: "Verify numerail-ext (Python ${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    needs: verify-core
+    defaults:
+      run:
+        working-directory: packages/numerail_ext
+    strategy:
+      fail-fast: true
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e "../numerail[dev]"
+      - run: pip install -e ".[dev]"
+      - run: pytest tests/ -v --tb=short
+
+  # ── publish numerail ─────────────────────────────────────────────────────
+  publish-core:
+    name: "Publish numerail to PyPI"
+    runs-on: ubuntu-latest
+    needs: [verify-core, verify-ext]
+    environment: pypi
+    defaults:
+      run:
+        working-directory: packages/numerail
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        run: |
+          pip install build
+          python -m build
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/numerail/dist/
+
+  # ── publish numerail-ext ─────────────────────────────────────────────────
+  # Waits for numerail to land on PyPI before publishing the extension,
+  # so pip can resolve the numerail>=5.0.0 dependency immediately.
+  publish-ext:
+    name: "Publish numerail-ext to PyPI"
+    runs-on: ubuntu-latest
+    needs: publish-core
+    environment: pypi
+    defaults:
+      run:
+        working-directory: packages/numerail_ext
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        run: |
+          pip install build
+          python -m build
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/numerail_ext/dist/

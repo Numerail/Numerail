@@ -37,6 +37,7 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/Numerail/Numerail"
 Repository = "https://github.com/Numerail/Numerail"
+Documentation = "https://github.com/Numerail/Numerail/blob/main/packages/numerail_ext/README.md"
 "Bug Tracker" = "https://github.com/Numerail/Numerail/issues"
 Changelog = "https://github.com/Numerail/Numerail/blob/main/CHANGELOG.md"
 
