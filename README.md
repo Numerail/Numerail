@@ -5,6 +5,34 @@
 
 **Deterministic geometric enforcement for AI actuation safety.**
 
+Silicon Valley shipped an incomplete product — an unverified proposal system
+(LLM) — and we have begun to automate critical real-world tasks with it. This
+will not scale. We cannot take probabilistic AI at its word because there will
+always be a nonzero chance of hallucination or misalignment, so we must reduce
+every consequential AI decision to a number, and verify every number before it
+touches the world.
+
+This is the insight: AI does not act in words. It acts in numbers. Token
+counts, resource budgets, voltage setpoints, trade sizes, lease durations.
+Every real-world consequence of an AI system passes through a numerical
+bottleneck before it becomes reality via tool calls, APIs and MCPs. If you can
+define the geometry of what is permissible, you can enforce it with
+mathematical certainty. Not by trusting the model, but by checking the output
+against policy before it becomes an irreversible action.
+
+Numerail makes this possible. It places a deterministic enforcement boundary
+between what the AI proposes and what the world receives, guaranteeing that
+every approved action satisfies every active constraint with 100% policy
+compliance. The model remains free to be creative, exploratory, and
+probabilistic within the bounds; it simply cannot exceed them. This means the
+hard problem is no longer "can we trust the AI?" It is "can we write the right
+constraints?"
+
+Specification, not total alignment, becomes the bottleneck. And specification
+is a human-legible, auditable, improvable engineering problem.
+
+---
+
 When an AI proposes a numerical action — a token budget, a GPU lease, an
 API-call grant, a trade size, a voltage setpoint — Numerail checks it against
 convex geometric constraints and returns **APPROVE**, **PROJECT** (corrected to
