@@ -1,0 +1,58 @@
+[project]
+name = "numerail"
+version = "5.0.0"
+description = "Deterministic geometric enforcement for AI actuation safety"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.21",
+    "scipy>=1.7",
+]
+keywords = [
+    "ai-safety",
+    "enforcement",
+    "convex-constraints",
+    "governance",
+    "formal-verification",
+    "actuation",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/Numerail/Numerail"
+Repository = "https://github.com/Numerail/Numerail"
+Documentation = "https://github.com/Numerail/Numerail/blob/main/packages/numerail/docs/DEVELOPER_GUIDE.md"
+"Bug Tracker" = "https://github.com/Numerail/Numerail/issues"
+Changelog = "https://github.com/Numerail/Numerail/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

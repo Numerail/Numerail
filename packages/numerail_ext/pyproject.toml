@@ -1,0 +1,57 @@
+[project]
+name = "numerail-ext"
+version = "0.4.0"
+description = "Survivability extension for Numerail — supervisory degradation for AI actuation safety"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "numerail>=5.0.0,<6.0.0",
+    "numpy>=1.21",
+    "scipy>=1.7",
+]
+keywords = [
+    "ai-safety",
+    "enforcement",
+    "circuit-breaker",
+    "governance",
+    "survivability",
+    "actuation",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/Numerail/Numerail"
+Repository = "https://github.com/Numerail/Numerail"
+"Bug Tracker" = "https://github.com/Numerail/Numerail/issues"
+Changelog = "https://github.com/Numerail/Numerail/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
