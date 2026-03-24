@@ -203,24 +203,49 @@ numerail/                        ← repository root
 
 ## Design
 
-Twelve engineering principles govern every component. The most foundational:
+Numerail implements a propose-check-enforce architecture. The AI proposes. The
+geometry checks. The engine enforces. Nothing reaches the world unchecked.
 
-**The guarantee is the product.** Everything else exists to make Theorem 1
-useful, composable, and auditable. No feature is added that weakens it.
+This is the same design primitive that governs fly-by-wire flight. When a pilot
+— or autopilot — commands a maneuver, the flight control computer does not pass
+the command to the control surfaces. It checks the command against the
+aerodynamic envelope: angle of attack limits, load factor boundaries, stall
+margins. If the command is inside the envelope, it executes. If it is outside,
+the computer corrects it to the nearest safe equivalent or rejects it. The
+pilot retains full authority within the envelope but cannot exceed it. This is
+why fly-by-wire aircraft do not depart controlled flight — not because pilots
+are perfect, but because the envelope is enforced geometrically, after the
+proposal and before the actuator. The same principle governs robotic workspace
+safety, where a safety controller checks proposed trajectories against convex
+collision boundaries before the motors execute.
+
+Numerail applies this architecture to AI actuation. The AI is the pilot — it
+proposes a workload vector. The feasible region is the envelope — convex
+constraints encoding what is operationally permissible. The enforcement engine
+is the flight control computer — it approves, projects to the nearest feasible
+point, or rejects. Everything else in the system exists to make this loop
+auditable, adaptive, and survivable.
+
+Four principles govern the design:
+
+**The guarantee is the product.** Theorem 1 proves that if the engine returns
+APPROVE or PROJECT, the output satisfies every active constraint. The service
+layer, the budgets, the audit chain, the breaker suite — all exist to make this
+guarantee useful in production. No feature is added that weakens it.
 
 **The AI is the subject of governance, never the governor.** The AI proposes
-13 numerical values. Everything else — the 17 trusted fields, the breaker mode,
-the envelope ceilings, the budget remaining, the freshness window — is
-determined by the orchestrator from server-authoritative sources the AI cannot
-read or write.
+workload values. Everything else — live telemetry, controller reserves, breaker
+mode, budget remaining, freshness windows — is determined by the orchestrator
+from server-authoritative sources the AI cannot read or write.
 
-**The kernel is unchanged by the layers above it.** The breaker suite controls
-which policy the kernel enforces against. It cannot modify how enforcement
-works. The guarantee proved for the kernel propagates to every layer built on
-top of it.
+**The kernel is unchanged by the layers above it.** The survivability extension
+controls which policy the kernel enforces against. It cannot modify how
+enforcement works. The guarantee proved for the kernel propagates unchanged to
+every layer built on top of it.
 
 **The default is denial.** Every permission must be explicitly granted through
-constraint geometry. The system does not guess intent.
+constraint geometry. An empty policy rejects everything. The system is safe by
+construction, not by assumption.
 
 ---
 
