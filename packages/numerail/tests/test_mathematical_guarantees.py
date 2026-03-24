@@ -4,40 +4,250 @@ tests/test_mathematical_guarantees.py
 Numerail v5.0.0 — Comprehensive Mathematical Guarantee Analysis Suite
 ======================================================================
 
-Provides precise, independently-derived verification of every formal claim in
-proof/PROOF.md. Each section is headed with the exact proof element being
-tested, its formal statement, and any assumptions it relies on.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  WHAT NUMERAIL GUARANTEES — A PLAIN-LANGUAGE SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Proof dependency graph (PROOF.md §Summary):
+Numerail is a safety layer that sits between an AI system and the real
+world. Before the AI is allowed to take any numerical action — request
+computing resources, make API calls, allocate a budget, set a parameter
+— Numerail checks that action against a set of rules and either lets it
+through, corrects it to the nearest safe value, or blocks it outright.
+
+The following guarantees are not aspirational. They are mathematically
+proved in proof/PROOF.md, machine-verified by proof/verify_proof.py,
+and independently confirmed by every test in this file.
+
+  GUARANTEE 1 — The output is always safe, no matter what the AI asks for
+  -------------------------------------------------------------------------
+  If Numerail says APPROVE or PROJECT (i.e., the action was allowed or
+  corrected), then the value it returns satisfies every single rule.
+  No exception. This holds for every possible AI request, including
+  deliberately malicious ones designed to trick the system.
+
+  In plain terms: if Numerail gives the green light, you can trust the
+  number that comes out. The AI cannot cheat its way to an unsafe value.
+
+  Precision: the returned value satisfies every constraint to within
+  one-millionth of a unit (tolerance tau = 0.000001). This is tighter
+  than the tolerance of any physical actuator or API rate limiter.
+
+  [Proved as Theorem 1 in proof/PROOF.md. Tested by Sections E, N, U.]
+
+  GUARANTEE 2 — When in doubt, block
+  ------------------------------------
+  If Numerail cannot find a safe correction — because the rules are too
+  tight, the AI's request is too far out of bounds, or a numerical solver
+  fails — it returns REJECT. It never guesses, never approximates past
+  the safety threshold, and never silently passes a value it cannot
+  verify. Inability to find a safe answer is treated the same as an
+  unsafe answer.
+
+  In plain terms: the system fails closed, not open. A broken solver
+  or an empty feasible region produces a block, not a pass.
+
+  [Proved as Theorem 2. Tested by Section F.]
+
+  GUARANTEE 3 — Hard rules cannot be overridden by the AI, ever
+  ---------------------------------------------------------------
+  Certain rules can be designated as "hard walls." If the AI's request
+  violates a hard wall, the request is rejected immediately — before
+  any solver is even attempted. There is no mechanism by which the AI
+  can project, approximate, or route around a hard wall.
+
+  In plain terms: some rules are absolute. The AI cannot get a
+  half-answer on a hard wall. It either complies fully or is blocked.
+
+  [Proved as Theorem 3. Tested by Section G.]
+
+  GUARANTEE 4 — Certain values the AI proposes cannot be modified
+  ---------------------------------------------------------------
+  Individual dimensions (fields) can be marked as "forbidden to change."
+  If allowing the AI's request would require Numerail to alter a
+  forbidden dimension, the request is rejected rather than corrected.
+  The forbidden value is never silently overwritten by the safety layer.
+
+  In plain terms: if the system operator says "never touch this field,"
+  Numerail will block any request that would require touching it — even
+  if blocking is the only safe option.
+
+  [Proved as Theorem 4. Tested by Section H.]
+
+  GUARANTEE 5 — Budgets only go down, never up (without a rollback)
+  ------------------------------------------------------------------
+  Once resources are consumed (GPU-seconds used, API calls made, budget
+  spent), the remaining allowance can only decrease or stay the same as
+  time progresses. The set of actions that are allowed today is a subset
+  of the actions that were allowed yesterday. Resources do not
+  spontaneously regenerate.
+
+  In plain terms: budgets are monotone. Yesterday's limit is at least as
+  generous as today's.
+
+  [Proved as Theorem 5. Tested by Section I.]
+
+  GUARANTEE 6 — A rolled-back action is exactly undone
+  -----------------------------------------------------
+  When an action is rolled back, the exact amount of budget it consumed
+  is restored — no more, no less. The rollback of action A exactly
+  cancels A's contribution, regardless of what other actions happened
+  in between. An action can only be rolled back once; a second attempt
+  is explicitly refused.
+
+  In plain terms: undo is exact and idempotent. You get back exactly
+  what was taken, and you cannot double-undo.
+
+  [Proved as Theorem 6. Tested by Section J.]
+
+  GUARANTEE 7 — In strict mode, the AI cannot self-escalate its privileges
+  -------------------------------------------------------------------------
+  When the enforcement mode is set to "reject" (no projections allowed),
+  any request that exceeds the current policy bounds is blocked outright.
+  Since the AI cannot write policy or modify bounds, it cannot escalate
+  its own authority. A tighter policy can never be loosened by the AI's
+  own requests.
+
+  In plain terms: in strict mode, the AI cannot bootstrap its way to
+  more permissions. If it is not allowed to do something, asking for it
+  simply gets a rejection.
+
+  [Proved as Theorem 7 (under assumptions A1-A3). Tested by Section K.]
+
+  GUARANTEE 8 — The audit trail cannot be secretly altered
+  ---------------------------------------------------------
+  Every enforcement decision is recorded in a tamper-evident chain. Each
+  record cryptographically commits to every record before it (using
+  SHA-256). Changing any record — modifying its content, swapping its
+  position, or deleting it — breaks the chain in a way that is
+  mechanically detectable.
+
+  In plain terms: the history cannot be rewritten without detection.
+  If anyone asks "did Numerail really approve that action?", the answer
+  is verifiable by checking the chain.
+
+  [Proved as Theorem 8 (under SHA-256 collision resistance). Tested by Section L.]
+
+  GUARANTEE 9 — If something is already safe, Numerail leaves it alone
+  ---------------------------------------------------------------------
+  If the AI's proposed action already satisfies every rule, Numerail
+  returns it unchanged with zero modification. Furthermore, if Numerail
+  corrects a value, the corrected value is itself safe — so running
+  Numerail a second time on the corrected output produces the same
+  output again (idempotence). The safety layer is not a distortion lens;
+  it is a boundary enforcer.
+
+  In plain terms: safe inputs pass through unmodified. And a corrected
+  output, if submitted again, will be approved as-is — Numerail never
+  chases its own tail.
+
+  [Proved as Theorem 9. Tested by Section M.]
+
+  ADDITIONAL PROPERTY — Server-measured values cannot be faked by the AI
+  -----------------------------------------------------------------------
+  When the system operator designates certain fields as "trusted" (e.g.,
+  real-time GPU utilisation measured server-side), those values are
+  injected by the server and cannot be overridden by what the AI claims.
+  Even if the AI reports low utilisation to appear more admissible, the
+  server's actual measurement is used instead.
+
+  In plain terms: the AI cannot lie about the state of the world to get
+  a more permissive answer. Infrastructure telemetry comes from the
+  infrastructure, not from the AI.
+
+  [Not a numbered theorem; tested by Section S.]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  WHAT THESE GUARANTEES DO NOT COVER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  - The guarantees assume the rules themselves are correctly written.
+    Numerail enforces whatever constraints it is given; it cannot
+    compensate for a policy that was designed incorrectly.
+
+  - Guarantee 7 (monotone self-limits) requires that only an authorized
+    operator can create or activate new policy versions. If an attacker
+    can modify the policy, they can change the rules.
+
+  - Guarantee 8 (audit integrity) holds under SHA-256 collision
+    resistance, which is a well-established cryptographic assumption
+    but not an unconditional mathematical certainty.
+
+  - The tolerance tau = 0.000001 is not zero. Numerail certifies that
+    the returned value is within one-millionth of a unit of the rule
+    boundary, not that it is on the exact boundary to infinite
+    precision. This is tighter than any real-world system requires.
+
+  - These guarantees apply to the Numerail enforcement layer. They say
+    nothing about what happens after an approved action is executed
+    in an external system.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  TEST STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This file is organized in 21 test classes corresponding to the proof
+elements in proof/PROOF.md. Each section header names the proof element,
+states its claim formally, and explains what the tests are measuring.
+
+  Section A  TestAxiom1_CheckerCorrectness       — constraint formulas
+  Section B  TestLemma1_CombinedChecker          — conjunction logic
+  Section C  TestLemma2_ProjectPostCheck         — solver post-check
+  Section D  TestLemma3_EmitPathInvariant        — defense-in-depth assert
+  Section E  TestTheorem1_EnforcementSoundness   — THE CENTRAL GUARANTEE
+  Section F  TestTheorem2_FailClosed             — fail-closed rejection
+  Section G  TestTheorem3_HardWallDominance      — hard-wall pre-emption
+  Section H  TestTheorem4_ForbiddenDimensionSafety
+  Section I  TestTheorem5_BudgetMonotonicity     — non-expanding budgets
+  Section J  TestTheorem6_RollbackRestoration    — exact undo
+  Section K  TestTheorem7_MonotoneSelfLimits     — no self-escalation
+  Section L  TestTheorem8_AuditChainIntegrity    — tamper detection
+  Section M  TestTheorem9_PassthroughIdempotence — safe pass-through
+  Section N  TestCorollaries_Independence        — solver/proposer safety
+  Section O  TestQuantitative_PrecisionBounds    — tau = 10^-6 exactly
+  Section P  TestProjectionOptimality            — nearest-safe-point
+  Section Q  TestConstraintConvexity             — midpoint property
+  Section R  TestRoutingThresholds               — tier monotonicity
+  Section S  TestTrustedContextInjection         — server-side telemetry
+  Section T  TestSchemaCorrectness               — field mapping
+  Section U  TestStress_AdversarialAtScale       — 1000-trial randomised
+
+99 tests total. All must pass before any change to engine.py is merged.
+
+Proof dependency graph (proof/PROOF.md §Summary):
     Axiom 1 (Checker Correctness)
-        ▼
-    Lemma 1 (Combined Checker = ∧ is_satisfied_j)
-        ├──► Lemma 2 (project postcheck ⟹ is_feasible)
-        ├──► Lemma 3 (emit-path invariant: _out asserts feasibility)
-        ▼
-    Theorem 1 (Enforcement Soundness) ← THE CENTRAL GUARANTEE
-        ├──► Corollary (solver independence)
-        ├──► Corollary (proposer independence)
-        └──► Theorem 9b (idempotence, via Theorem 1 + Theorem 9a)
+        |
+        v
+    Lemma 1 (Combined Checker = conjunction of all is_satisfied_j)
+        |
+        +---> Lemma 2 (project postcheck_passed=True => is_feasible)
+        |
+        +---> Lemma 3 (emit-path: _out asserts feasibility before output)
+        |
+        v
+    Theorem 1 (APPROVE/PROJECT => y in F_tau)  <<< THE CENTRAL GUARANTEE
+        |
+        +---> Corollary: solver independence
+        +---> Corollary: proposer independence
+        +---> Theorem 9b: idempotence
 
-    Theorem 2  (fail-closed rejection)
-    Theorem 3  (hard-wall dominance)
-    Theorem 4  (forbidden-dimension safety)
-    Theorem 5  (budget monotonicity)
-    Theorem 6  (rollback restoration)
-    Theorem 7  (monotone self-limits)
-    Theorem 8  (audit-chain integrity)
-    Theorem 9a (passthrough)
+    Theorem 2   all solvers fail => REJECT
+    Theorem 3   hard-wall violated => REJECT before solver
+    Theorem 4   forbidden dimension changed => REJECT
+    Theorem 5   budget monotonicity: F_{t+1} subset F_t
+    Theorem 6   rollback: exact delta restoration
+    Theorem 7   reject mode + external auth => no self-escalation
+    Theorem 8   SHA-256 chain: any tamper is detectable
+    Theorem 9a  passthrough: x in F_tau => APPROVE, distance=0
 
-Notation (matching PROOF.md §Notation):
-    n         — vector dimension
-    x ∈ ℝⁿ   — proposed vector
-    F = {C₁, …, Cₘ}  — active feasible region (collection of convex constraints)
-    Cⱼ        — a single convex constraint
-    τ > 0     — tolerance (default 10⁻⁶ = solver_tol)
-    F_τ       — {x ∈ ℝⁿ : ∀j, Cⱼ.evaluate(x) ≤ τ}
-    r         — enforcement result ∈ {APPROVE, PROJECT, REJECT}
-    y         — enforced vector
+Notation (matching proof/PROOF.md §Notation):
+    n         -- vector dimension (number of numerical fields)
+    x in R^n  -- proposed vector (what the AI asks for)
+    F         -- active feasible region (the set of rules)
+    C_j       -- a single convex constraint (one rule)
+    tau > 0   -- tolerance (default 10^-6 = solver_tol)
+    F_tau     -- {x in R^n : for all j, C_j.evaluate(x) <= tau}
+    r         -- enforcement result in {APPROVE, PROJECT, REJECT}
+    y         -- enforced vector (what Numerail returns)
 
 All "Theorem N", "Lemma N", "Axiom 1", "Corollary" citations refer to
 packages/numerail/proof/PROOF.md unless otherwise noted.
