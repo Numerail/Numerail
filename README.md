@@ -5,14 +5,14 @@
 
 **Deterministic geometric enforcement for AI safety.**
 
-Silicon Valley shipped an incomplete product — an unverified proposal system
+Silicon Valley shipped a beautiful but incomplete product — an unverified proposal system
 (LLM) — and we have begun to automate critical real-world tasks with it. This
 will not scale. We cannot take probabilistic AI at its word because there will
 always be a nonzero chance of hallucination or misalignment, so we must reduce
 every consequential AI decision to a number, and verify every number before it
 touches the world.
 
-This is the insight: AI does not act in words. It acts in numbers. Token
+This is the core insight: AI does not act in words. It acts in numbers. Token
 counts, resource budgets, voltage setpoints, trade sizes, lease durations.
 Every real-world consequence of an AI system passes through a numerical
 bottleneck before it becomes reality via tool calls, APIs and MCPs. If you can
