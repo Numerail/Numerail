@@ -28,13 +28,12 @@ pip install -e .              # this package
 ## Quickstart
 
 ```python
-from numerail_ext.survivability import (
+from numerail_ext import (
     BreakerStateMachine, BreakerThresholds, BreakerMode,
     IncidentCommanderTransitionModel,
     StateTransitionGovernor, LocalNumerailBackend,
+    build_global_default, NumerailPolicyContract,
 )
-from numerail_ext.survivability.global_default import build_global_default
-from numerail_ext.survivability.contract import NumerailPolicyContract
 
 # Build a default policy and wrap it in a verifiable contract
 config = build_global_default()
