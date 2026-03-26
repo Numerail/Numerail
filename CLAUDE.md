@@ -27,7 +27,8 @@ The system is **fail-closed**: if no solver produces a verified feasible point, 
 
 The guarantee is proved in `packages/numerail/proof/PROOF.md` (Axiom 1, Lemmas 1–3, Theorems 1–9, 2 Corollaries) and independently verified by:
 - `packages/numerail/proof/verify_proof.py` — 3,732 structural/property checks
-- `packages/numerail/tests/test_guarantee.py` — 45 certification tests across 7 categories
+- `packages/numerail/tests/test_guarantee.py` — 46 certification tests across 7 categories
+- `packages/numerail/tests/test_mathematical_guarantees.py` — 99 guarantee analysis tests (one per proof claim)
 
 ## Repository Layout
 
@@ -42,8 +43,9 @@ numerail-repo/                       ← repository root (tagged v5.0.0 / ext v0
         local.py                     ← in-memory local mode
         protocols.py                 ← typed Protocol interfaces
         errors.py                    ← production-layer exceptions
-      tests/                         ← 153 tests total
-        test_guarantee.py            ← 45 guarantee certification tests (most critical)
+      tests/                         ← 253 tests total
+        test_guarantee.py            ← 46 guarantee certification tests (most critical)
+        test_mathematical_guarantees.py ← 99 guarantee analysis tests (one per proof claim)
       proof/
         PROOF.md                     ← mathematical proof
         verify_proof.py              ← machine-verifiable proof checker (3,732 checks)
@@ -81,11 +83,14 @@ numerail-repo/                       ← repository root (tagged v5.0.0 / ext v0
 ## How to Run Tests
 
 ```bash
-# Core — full test suite (153 tests)
+# Core — full test suite (253 tests)
 cd packages/numerail && pytest tests/ -v
 
-# Core — guarantee certification only (45 tests, most critical)
+# Core — guarantee certification only (46 tests, most critical)
 cd packages/numerail && pytest tests/test_guarantee.py -v
+
+# Core — mathematical guarantee analysis (99 tests, one per proof claim)
+cd packages/numerail && pytest tests/test_mathematical_guarantees.py -v
 
 # Core — machine-verifiable proof checker (3,732 checks)
 cd packages/numerail && python proof/verify_proof.py

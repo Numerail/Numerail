@@ -8,6 +8,10 @@ Both packages use [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`engine.py` — tolerance mismatch between R1 gate and `_out` defense-in-depth (`engine.py` line 1266).** The APPROVE path checked `effective.is_feasible(x)` using the hardcoded default tolerance `1e-6`, while the defense-in-depth assertion in `_out()` checked `effective.is_feasible(enforced, cfg.solver_tol)`. When a caller configured `solver_tol` tighter than `1e-6`, vectors with violations in `(solver_tol, 1e-6]` passed the R1 gate but then raised `AssertionError` inside `_out()` — a crash on valid inputs. Fixed by passing `cfg.solver_tol` explicitly to the R1 gate: `effective.is_feasible(x, cfg.solver_tol)`. Behavior is identical at the default `solver_tol=1e-6`. The fix makes the APPROVE gate and the defense-in-depth assertion use the same tolerance under all configurations. Safety impact: none — the system was failing closed; no unsound output was ever returned. Also updated the structural pattern check in `proof/verify_proof.py` and `tests/test_guarantee.py` to accept the tol-explicit call form, and added `TestTolerance::test_approve_respects_solver_tol` as a regression test.
+
 ---
 
 ## numerail 5.0.0 — 2025
@@ -52,7 +56,8 @@ Both packages use [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 **Test suite**
 - `test_engine.py`: 37 tests covering all constraint types, enforcement modes, schema, budgets, audit chain, solver routing.
-- `test_guarantee.py`: 45 certification tests across 7 categories: structural verification, formal property tests (all 9 theorems), constraint type coverage, adversarial probes, randomised stress tests, enforcement mode coverage, tolerance precision.
+- `test_guarantee.py`: 46 certification tests across 7 categories: structural verification, formal property tests (all 9 theorems), constraint type coverage, adversarial probes, randomised stress tests, enforcement mode coverage, tolerance precision. Includes `test_approve_respects_solver_tol` regression test for the R1 gate tolerance fix.
+- `test_mathematical_guarantees.py`: 99 guarantee analysis tests (one per proof claim) across 21 sections (A–U), covering Axiom 1, Lemmas 1–3, Theorems 1–9, both Corollaries, quantitative precision, projection optimality, convexity, routing thresholds, trusted context, schema, and stress tests. Includes a plain-language preface accessible to non-technical readers.
 - `test_parser.py`: 14 tests covering config grammar, budget collision detection, hard-wall validation.
 - `test_service.py`: 25 tests covering the full transactional flow, scope enforcement, weight-map budgets.
 - `test_ai_resource_governor.py`: 17 tests for the flagship AI governance example.
