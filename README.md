@@ -255,6 +255,102 @@ construction, not by assumption.
 
 ---
 
+## Challenges
+
+Numerail guarantees that every approved or projected output satisfies every
+active constraint. It does not guarantee that the constraints are correct. The
+gap between these two statements is where every real deployment challenge lives.
+
+**The specification problem is the hard problem.** Writing the right constraints
+— translating governance intent into convex geometry that captures all relevant
+risk, at the right levels, with the right interactions, for the right fields —
+is the hardest part of deploying Numerail. A credit cap set at $5,000 when the
+intent was $50 will be faithfully enforced at $5,000. A policy that omits a
+safety-relevant dimension leaves that dimension unconstrained. A joint constraint
+that weights two fields equally when the domain requires asymmetric weighting
+will enforce the wrong tradeoff with perfect fidelity. The engine cannot detect
+these errors because they are not errors in the engine — they are errors in the
+specification.
+
+**Projection changes the AI's proposal, and the change may not match intent.**
+When the engine projects an infeasible vector to the nearest feasible point, the
+result satisfies every constraint — that is proved. But "nearest feasible point"
+is a geometric operation, not a semantic one. If an AI proposes 200 GPU-seconds
+and the cap is 120, projection clips it to 120. That is probably what the
+deployer intended. But if an AI proposes a workload that violates a complex joint
+constraint involving GPU utilization, API calls, and parallelism simultaneously,
+the projected point will be the closest point in the feasible polytope — which
+may redistribute the workload across dimensions in ways the deployer did not
+anticipate. The projected action is safe by the constraint definition. Whether it
+is operationally sensible depends on whether the constraints correctly encode the
+deployer's notion of sensible. For dimensions where silent correction is
+dangerous, the `PROJECTION_FORBIDDEN` dimension policy exists — it forces
+rejection instead of projection, requiring the AI to propose a feasible action on
+its own.
+
+**Breaker mode transitions depend on threshold calibration.** The breaker state
+machine transitions between CLOSED, THROTTLED, HALF_OPEN, SAFE_STOP, and OPEN
+based on a weighted overload score computed from live telemetry. The weights
+(0.30 GPU, 0.25 API, 0.20 DB, 0.10 queue, 0.15 error rate) and the threshold
+values (trip_score, reset_score, safe_stop_score) determine when the system
+degrades. If the trip threshold is too low, the system throttles under normal
+load and rejects actions that should be permitted. If it is too high, the system
+stays in CLOSED mode under genuine stress and permits actions that should be
+restricted. If the reset threshold is too close to the trip threshold, the
+breaker oscillates between modes. If the safe_stop threshold is too low,
+SAFE_STOP latches prematurely and requires manual intervention when automated
+recovery would have been appropriate. None of these are bugs in the breaker logic
+— the transitions are correct for whatever thresholds you configure. They are
+calibration problems, and they require operational experience with the specific
+infrastructure being governed.
+
+**Budget sizing determines how long authority lasts.** The three shift budgets
+(GPU-seconds, external API calls, cloud mutations) deplete monotonically as the
+AI consumes resources. If the GPU budget is set to 3,600 seconds for an 8-hour
+shift, the AI can lease 450 seconds per hour on average. If the AI's workload is
+bursty — consuming 2,000 seconds in the first hour — it will hit budget
+exhaustion well before the shift ends, and every subsequent action that requires
+GPU time will be rejected. The budget is not wrong; the budget is exactly what
+was specified. But the deployer may have intended a burst-tolerant budget with
+per-hour sub-limits rather than a single-shift pool. Numerail provides the budget
+tracking and enforcement machinery. The deployer must decide the budget
+structure.
+
+**Reserve sizing determines whether the governance system survives.** The
+control-plane reserve pattern subtracts protected capacity for the governance
+controller before evaluating the AI's request. If the GPU reserve is set to 30
+seconds but the controller actually requires 50 seconds to complete its
+monitoring and enforcement cycle under load, the reserve is insufficient and the
+controller can be starved even though the constraints say it should be protected.
+The constraint will be satisfied — the 30-second reserve will be preserved. But
+30 seconds is not enough. This is a specification error in the reserve value, not
+a failure of the enforcement engine.
+
+**Trusted context accuracy is assumed, not verified.** The server-authoritative
+fields — current GPU utilization, API utilization, error rates, controller
+reserves, disturbance margins — are injected by the orchestrator from
+infrastructure telemetry. If the telemetry source reports GPU utilization as 0.30
+when the actual utilization is 0.85, the enforcement engine will evaluate the
+AI's request against a constraint that thinks there is 55% more headroom than
+actually exists. The engine guarantees that the output satisfies every constraint
+as computed from the injected values. It does not guarantee that the injected
+values are accurate. Stale telemetry is partially mitigated by the three-layer
+freshness architecture (engine constraints, governor clock check, reservation
+expiry), but telemetry that is fresh and wrong — a sensor reporting an incorrect
+value — passes through the freshness checks and corrupts the constraint
+evaluation silently.
+
+None of this is unique to Numerail. Every rule-based governance system in every
+regulated industry faces the same problem: building codes, drug dosing protocols,
+flight envelopes, financial compliance rules. The constraints are written by
+humans, and humans can write the wrong constraints. Numerail's contribution is to
+make the enforcement provably correct so that specification becomes the only
+remaining problem — and specification is a legible, auditable, iterative
+engineering problem with established tools, observable metrics, and a versioned
+policy history that supports continuous refinement.
+
+---
+
 ## Documentation
 
 | Document | Location |
