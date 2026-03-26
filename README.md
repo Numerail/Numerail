@@ -341,7 +341,7 @@ value — passes through the freshness checks and corrupts the constraint
 evaluation silently.
 
 None of this is unique to Numerail. Every rule-based governance system in every
-regulated industry faces the same problem: building codes, drug dosing protocols,
+regulated industry faces the same problem: building codes, aviation maintenance procedures,
 flight envelopes, financial compliance rules. The constraints are written by
 humans, and humans can write the wrong constraints. Numerail's contribution is to
 make the enforcement provably correct so that specification becomes the only
