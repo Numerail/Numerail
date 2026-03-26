@@ -103,6 +103,9 @@ cd packages/numerail_ext && pytest tests/ -v
 
 # Extension — integration tests only (10 tests, full governor lifecycle)
 cd packages/numerail_ext && pytest tests/test_integration.py -v
+
+# Full stack — single-command smoke test (14 steps, all theorems exercised)
+python packages/numerail/examples/hello_world.py
 ```
 
 Install before testing:

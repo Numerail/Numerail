@@ -167,6 +167,9 @@ cd packages/numerail_ext && pytest tests/ -v
 
 # Ext — integration tests only (10 tests, exercises full governor lifecycle)
 cd packages/numerail_ext && pytest tests/test_integration.py -v
+
+# Full stack — hello world smoke test (14 steps, all theorems exercised)
+python packages/numerail/examples/hello_world.py
 ```
 
 ---
