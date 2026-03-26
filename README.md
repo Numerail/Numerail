@@ -100,7 +100,7 @@ packages/numerail_ext/
 | Python | ≥ 3.10 |
 | Dependencies | numerail ≥ 5.0.0, numpy ≥ 1.21, scipy ≥ 1.7 |
 | License | MIT |
-| Tests | 207 passing |
+| Tests | 217 passing |
 
 Provides the breaker state machine, `IncidentCommanderTransitionModel`,
 `StateTransitionGovernor`, global default policy pack, and
@@ -164,6 +164,9 @@ cd packages/numerail/proof && lake env lean Guarantee.lean
 
 # Ext — full test suite (207 tests)
 cd packages/numerail_ext && pytest tests/ -v
+
+# Ext — integration tests only (10 tests, exercises full governor lifecycle)
+cd packages/numerail_ext && pytest tests/test_integration.py -v
 ```
 
 ---
@@ -198,7 +201,8 @@ numerail/                        ← repository root
         local_backend.py         ← LocalNumerailBackend
         validation.py            ← validate_receipt_against_grant()
         types.py                 ← shared data types and Protocols
-      tests/                     ← 207 tests
+      tests/                     ← 217 tests
+        test_integration.py      ← 10 integration tests (full governor lifecycle)
   .github/workflows/             ← CI
   .gitignore
   CHANGELOG.md

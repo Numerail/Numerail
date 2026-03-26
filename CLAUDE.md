@@ -74,7 +74,8 @@ numerail-repo/                       ← repository root (tagged v5.0.0 / ext v0
         local_backend.py             ← LocalNumerailBackend
         validation.py                ← validate_receipt_against_grant()
         types.py                     ← shared data types and Protocols
-      tests/                         ← 207 tests
+      tests/                         ← 217 tests
+        test_integration.py          ← 10 integration tests (full governor lifecycle, cross-stack)
   .github/workflows/
     ci.yml                           ← CI: checkout@v5, setup-python@v6, Python 3.9–3.12
     release.yml                      ← PyPI trusted publishing on v* tag push
@@ -97,8 +98,11 @@ cd packages/numerail && pytest tests/test_mathematical_guarantees.py -v
 # Core — machine-verifiable proof checker (3,732 checks)
 cd packages/numerail && python proof/verify_proof.py
 
-# Extension — full test suite (207 tests)
+# Extension — full test suite (217 tests)
 cd packages/numerail_ext && pytest tests/ -v
+
+# Extension — integration tests only (10 tests, full governor lifecycle)
+cd packages/numerail_ext && pytest tests/test_integration.py -v
 ```
 
 Install before testing:

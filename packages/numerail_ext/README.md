@@ -48,7 +48,8 @@ assert contract.verify_digest()
 ## Tests
 
 ```bash
-pytest tests/ -v    # 207 tests (87 breaker + 120 contract)
+pytest tests/ -v                      # 217 tests (87 breaker + 120 contract + 10 integration)
+pytest tests/test_integration.py -v  # integration only — full governor lifecycle
 ```
 
 ## Requires
