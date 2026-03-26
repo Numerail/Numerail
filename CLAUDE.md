@@ -58,6 +58,8 @@ numerail-repo/                       ← repository root (tagged v5.0.0 / ext v0
         DEPLOYMENT.md                ← production deployment guide
         REFERENCE.md                 ← API reference
       examples/
+        hello_world.py               ← 14-step full-stack smoke test (all theorems, both packages)
+        HELLO_WORLD_REPORT.md        ← verified performance report for hello_world.py
         ai_resource_governor.py      ← base AI governance example (8-field policy, all 4 constraint types)
         ai_circuit_breaker.py        ← control-plane reserve pattern
         autonomous_agent_governor.py ← 20-step simulation: breaker transitions, budget depletion, rollback

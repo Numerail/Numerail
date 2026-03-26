@@ -595,18 +595,26 @@ src/numerail/
 
 tests/
     test_engine.py               — engine-level tests (37 tests)
-    test_guarantee.py            — guarantee certification suite (45 tests)
+    test_guarantee.py            — guarantee certification suite (46 tests)
     test_parser.py               — parser and linter tests (14 tests)
     test_service.py              — production path tests (25 tests)
     test_ai_resource_governor.py — flagship example tests (17 tests)
 
 examples/
+    hello_world.py               — 14-step full-stack smoke test (all theorems, both packages)
+    HELLO_WORLD_REPORT.md        — verified performance report for hello_world.py
     quickstart.py                — minimal 2D box example
     ai_resource_governor.py      — flagship: full AI governance demo
+    ai_circuit_breaker.py        — control-plane reserve pattern
+    autonomous_agent_governor.py — 20-step simulation: breaker transitions, budget depletion, rollback
+    rest_api_server.py           — FastAPI server wrapping NumerailSystemLocal (3 endpoints)
+    rest_api_client.py           — stdlib-only client exercising all three server endpoints
 
 proof/
-    PROOF.md                     — mathematical proof (9 theorems)
+    PROOF.md                     — mathematical proof (Axiom 1, Lemmas 1–3, Theorems 1–9)
     verify_proof.py              — machine-verifiable proof checker (3,732 checks)
+    Guarantee.v                  — Rocq/Coq machine-checked formalization (11 proofs, 0 Admitted)
+    Guarantee.lean               — Lean 4 machine-checked formalization (12 proofs, 0 sorry)
 ```
 
 The engine is a single file by design. The entire trust boundary — from `ConvexConstraint.evaluate()` through `FeasibleRegion.is_feasible()` through the `_out()` invariant to the eight return paths of `enforce()` — is auditable in one top-to-bottom read without opening another file.

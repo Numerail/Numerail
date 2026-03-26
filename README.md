@@ -191,8 +191,15 @@ numerail/                        ← repository root
         test_guarantee.py        ← 46 certification tests (proof/PROOF.md §Theorem 1–9)
         test_mathematical_guarantees.py ← 99 guarantee analysis tests (one per proof claim)
       proof/                     ← PROOF.md + verify_proof.py (3,732 checks) + Guarantee.v + Guarantee.lean
-      docs/                      ← DEVELOPER_GUIDE, GUARANTEE, SPECIFICATION,
-      examples/                  ←   DEPLOYMENT, REFERENCE
+      docs/                      ← DEVELOPER_GUIDE, GUARANTEE, SPECIFICATION, DEPLOYMENT, REFERENCE
+      examples/
+        hello_world.py           ← 14-step full-stack smoke test (all theorems, both packages)
+        HELLO_WORLD_REPORT.md    ← verified performance report for hello_world.py
+        ai_resource_governor.py  ← base AI governance example (all 4 constraint types)
+        ai_circuit_breaker.py    ← control-plane reserve pattern
+        autonomous_agent_governor.py ← 20-step simulation
+        rest_api_server.py       ← FastAPI server wrapping NumerailSystemLocal
+        rest_api_client.py       ← stdlib-only client
     numerail_ext/                ← survivability extension
       src/numerail_ext/survivability/
         breaker.py               ← BreakerStateMachine

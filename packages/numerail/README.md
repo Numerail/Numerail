@@ -85,6 +85,8 @@ cd proof && lake env lean Guarantee.lean
 
 ## Examples
 
+[`examples/hello_world.py`](examples/hello_world.py) — 14-step full-stack smoke test covering every major capability: box constraints, all four constraint types, fail-closed REJECT, hard-wall dominance, enforcement modes, passthrough/idempotence, schema, budgets, audit chain, breaker state machine, global default policy, policy contract, governor lifecycle, and proof checker. Exercises both packages in one run. See [`examples/HELLO_WORLD_REPORT.md`](examples/HELLO_WORLD_REPORT.md) for the verified performance report.
+
 [`examples/ai_resource_governor.py`](examples/ai_resource_governor.py) — Base AI governance: token ceilings, GPU leases, API-call grants, concurrency limits, trusted infrastructure telemetry, and cumulative daily budgets — with all four constraint types, trusted-context injection, budget depletion, rollback, and audit.
 
 [`examples/ai_circuit_breaker.py`](examples/ai_circuit_breaker.py) — Advanced control-plane reserve pattern: extends the resource governor with trusted controller reserves and disturbance margins so that any approved action provably preserves enough capacity for the governance system itself to keep running.
