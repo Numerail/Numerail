@@ -252,6 +252,47 @@ The central result is Theorem 1. It depends on Axiom 1 (checker correctness), Le
 
 ---
 
+## Rocq (Coq) Machine-Checked Formalization
+
+`proof/Guarantee.v` contains a machine-checked Rocq/Coq formalization of the core proof chain. It compiles on Rocq 9.0 / Coq 8.18+ with no plugins or external libraries beyond the standard library (`Stdlib.List`, `Stdlib.Bool`).
+
+**What is proved (12 theorems/lemmas, 0 Admitted):**
+
+| Coq name | Corresponds to |
+|---|---|
+| `is_feasible_correct` | Lemma 1 — combined checker = conjunction of individual checkers |
+| `emit_path_invariant` | Lemma 3 — emit path assertion: APPROVE/PROJECT output is feasible |
+| `reject_contradicts` | Supporting lemma — REJECT output cannot satisfy the APPROVE/PROJECT hypothesis |
+| `enforcement_soundness` | **Theorem 1** — if enforce returns APPROVE or PROJECT, the output is feasible |
+| `enforcement_soundness_per_constraint` | Theorem 1 corollary — per-constraint form: every individual constraint is satisfied |
+| `fail_closed` | Theorem 2 — all solvers fail implies REJECT |
+| `hard_wall_dominance` | Theorem 3 — hard wall violated implies REJECT before solver invocation |
+| `passthrough` | Theorem 9a — feasible input is approved unchanged |
+| `idempotence` | Theorem 9b — applying enforce to an already-enforced output yields APPROVE |
+| `budget_monotonicity` | Theorem 5 (structural fragment) — tighter constraint implies smaller feasible set |
+| `numerail_guarantee` | Top-level statement: the Numerail guarantee in per-constraint form |
+
+**Three assumptions (axioms/parameters) and why they are sound:**
+
+1. **`Parameter vec : Type`** — the proposal vector is modelled as an abstract type. Real implementations use `numpy.ndarray` over float64. Floating-point rounding is not modelled; see the abstraction gap note below.
+
+2. **`Parameter solver` + `Axiom project_postcheck`** — the solver is modelled as a black box that returns a `ProjectionResult`. `project_postcheck` states that if `postcheck_passed = true`, the returned point is feasible. This directly formalises Lemma 2: the post-check is the only property of the solver that Theorem 1 depends on. In the Python code this is enforced structurally — `postcheck_passed` is set to `True` only inside the branch where `region.is_feasible(y, tol)` returned `True`.
+
+3. **`Parameter operational_filters_pass`** — the operational filters (forbidden-dimension check, routing hard-reject, hybrid distance limit) are modelled as a single boolean predicate over `(x, proj_point)`. Theorem 1 holds regardless of what this predicate returns: if it returns `false`, `enforce` emits `Reject`, which is excluded by the soundness hypothesis.
+
+**Abstraction gap — floating-point arithmetic:**
+
+The formalization uses Coq's propositional logic over boolean decidable predicates; it does not model IEEE 754 floating-point arithmetic. The Python implementation uses `numpy.float64`. Rounding errors in `is_satisfied` evaluations and in the projection solver are not captured. The formalization proves that the *control flow* is sound given correct boolean oracles; the empirical guarantee tests (`test_guarantee.py`, `test_mathematical_guarantees.py`) cover the floating-point residual with tolerance τ.
+
+**To compile:**
+
+```bash
+cd packages/numerail/proof
+coqc Guarantee.v
+```
+
+---
+
 ## Correspondence to Code
 
 | Proof element | Code location |

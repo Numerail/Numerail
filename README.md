@@ -77,7 +77,7 @@ packages/numerail/
 | Python | ≥ 3.9 |
 | Dependencies | numpy ≥ 1.21, scipy ≥ 1.7 |
 | License | MIT |
-| Tests | 252 passing |
+| Tests | 253 passing |
 | Proof checks | 3,732 passing |
 
 Provides the enforcement guarantee, four convex constraint types (linear,
@@ -144,10 +144,10 @@ pip install -e .
 ## Verification
 
 ```bash
-# Core — full test suite (252 tests)
+# Core — full test suite (253 tests)
 cd packages/numerail && pytest tests/ -v
 
-# Core — guarantee certification only (45 tests)
+# Core — guarantee certification only (46 tests)
 cd packages/numerail && pytest tests/test_guarantee.py -v
 
 # Core — mathematical guarantee analysis (99 tests, one per proof claim)
@@ -155,6 +155,9 @@ cd packages/numerail && pytest tests/test_mathematical_guarantees.py -v
 
 # Core — machine-verifiable proof checker (3,732 checks)
 cd packages/numerail && python proof/verify_proof.py
+
+# Core — Rocq machine-checked proof (12 theorems, 0 Admitted)
+cd packages/numerail/proof && coqc Guarantee.v
 
 # Ext — full test suite (207 tests)
 cd packages/numerail_ext && pytest tests/ -v
@@ -175,10 +178,10 @@ numerail/                        ← repository root
         local.py                 ← in-memory local mode
         protocols.py             ← typed Protocol interfaces
         errors.py                ← production-layer exceptions
-      tests/                     ← 252 tests
-        test_guarantee.py        ← 45 certification tests (proof/PROOF.md §Theorem 1–9)
+      tests/                     ← 253 tests
+        test_guarantee.py        ← 46 certification tests (proof/PROOF.md §Theorem 1–9)
         test_mathematical_guarantees.py ← 99 guarantee analysis tests (one per proof claim)
-      proof/                     ← PROOF.md + verify_proof.py (3,732 checks)
+      proof/                     ← PROOF.md + verify_proof.py (3,732 checks) + Guarantee.v
       docs/                      ← DEVELOPER_GUIDE, GUARANTEE, SPECIFICATION,
       examples/                  ←   DEPLOYMENT, REFERENCE
     numerail_ext/                ← survivability extension

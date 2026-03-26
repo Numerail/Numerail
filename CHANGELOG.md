@@ -8,6 +8,10 @@ Both packages use [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Rocq/Coq machine-checked formalization of the enforcement guarantee (`proof/Guarantee.v`).** Formalizes Axiom 1, Lemma 1, Lemmas 2–3, and Theorem 1 (enforcement soundness) in Rocq/Coq using only the standard library. 12 proofs, 0 `Admitted`. Proves `enforcement_soundness` (Theorem 1), `enforcement_soundness_per_constraint` (per-constraint corollary), `fail_closed` (Theorem 2), `hard_wall_dominance` (Theorem 3), `passthrough` and `idempotence` (Theorem 9), `budget_monotonicity` (Theorem 5 structural fragment), and supporting lemmas. Three axioms/parameters: abstract `vec` type (floating-point not modelled — see PROOF.md abstraction gap note), `solver` black box + `project_postcheck` axiom formalising Lemma 2, and `operational_filters_pass` predicate covering the operational filter paths. Compiles on Rocq 9.0 / Coq 8.18+. See `proof/PROOF.md § Rocq Machine-Checked Formalization` for full details.
+
 ### Fixed
 
 - **`engine.py` — tolerance mismatch between R1 gate and `_out` defense-in-depth (`engine.py` line 1266).** The APPROVE path checked `effective.is_feasible(x)` using the hardcoded default tolerance `1e-6`, while the defense-in-depth assertion in `_out()` checked `effective.is_feasible(enforced, cfg.solver_tol)`. When a caller configured `solver_tol` tighter than `1e-6`, vectors with violations in `(solver_tol, 1e-6]` passed the R1 gate but then raised `AssertionError` inside `_out()` — a crash on valid inputs. Fixed by passing `cfg.solver_tol` explicitly to the R1 gate: `effective.is_feasible(x, cfg.solver_tol)`. Behavior is identical at the default `solver_tol=1e-6`. The fix makes the APPROVE gate and the defense-in-depth assertion use the same tolerance under all configurations. Safety impact: none — the system was failing closed; no unsound output was ever returned. Also updated the structural pattern check in `proof/verify_proof.py` and `tests/test_guarantee.py` to accept the tol-explicit call form, and added `TestTolerance::test_approve_respects_solver_tol` as a regression test.
