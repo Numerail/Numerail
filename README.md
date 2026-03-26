@@ -3,7 +3,7 @@
 [![CI](https://github.com/Numerail/Numerail/actions/workflows/ci.yml/badge.svg)](https://github.com/Numerail/Numerail/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Deterministic geometric enforcement for AI actuation safety.**
+**Deterministic geometric enforcement for AI safety.**
 
 Silicon Valley shipped an incomplete product — an unverified proposal system
 (LLM) — and we have begun to automate critical real-world tasks with it. This
