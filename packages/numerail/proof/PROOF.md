@@ -256,7 +256,7 @@ The central result is Theorem 1. It depends on Axiom 1 (checker correctness), Le
 
 `proof/Guarantee.v` contains a machine-checked Rocq/Coq formalization of the core proof chain. It compiles on Rocq 9.0 / Coq 8.18+ with no plugins or external libraries beyond the standard library (`Stdlib.List`, `Stdlib.Bool`).
 
-**What is proved (12 theorems/lemmas, 0 Admitted):**
+**What is proved (11 theorems/lemmas, 0 Admitted):**
 
 | Coq name | Corresponds to |
 |---|---|
@@ -297,19 +297,22 @@ coqc Guarantee.v
 
 `proof/Guarantee.lean` contains an independent machine-checked Lean 4 formalization of the same proof chain. It requires Lean 4 with [Mathlib](https://leanprover-community.github.io/mathlib4_docs/).
 
-**What is proved (10 theorems/lemmas, 0 sorry):**
+**What is proved (12 theorems/lemmas, 0 sorry — 9 public, 3 private supporting):**
 
-| Lean 4 name | Corresponds to |
-|---|---|
-| `is_feasible_correct` | Lemma 1 — combined checker = conjunction of individual checkers |
-| `enforcement_soundness` | **Theorem 1** — if enforce returns approve or project, the output is feasible |
-| `enforcement_soundness_per_constraint` | Theorem 1 corollary — per-constraint form |
-| `fail_closed` | Theorem 2 — all solvers fail implies reject |
-| `hard_wall_dominance` | Theorem 3 — hard wall violated implies reject |
-| `passthrough` | Theorem 9a — feasible input is approved unchanged |
-| `idempotence` | Theorem 9b — enforce applied to an already-enforced output yields approve |
-| `budget_monotonicity` | Theorem 5 (structural fragment) — tighter constraint implies smaller feasible set |
-| `numerail_guarantee` | Top-level statement: the Numerail guarantee in per-constraint form |
+| Lean 4 name | Visibility | Corresponds to |
+|---|---|---|
+| `is_feasible_correct` | public | Lemma 1 — combined checker = conjunction of individual checkers |
+| `approve_sound` | private | Supporting: emit .approve returns a feasible output |
+| `project_sound` | private | Supporting: emit .project returns a feasible output |
+| `reject_absurd` | private | Supporting: REJECT output cannot satisfy the APPROVE/PROJECT hypothesis |
+| `enforcement_soundness` | public | **Theorem 1** — if enforce returns approve or project, the output is feasible |
+| `enforcement_soundness_per_constraint` | public | Theorem 1 corollary — per-constraint form |
+| `fail_closed` | public | Theorem 2 — all solvers fail implies reject |
+| `hard_wall_dominance` | public | Theorem 3 — hard wall violated implies reject |
+| `passthrough` | public | Theorem 9a — feasible input is approved unchanged |
+| `idempotence` | public | Theorem 9b — enforce applied to an already-enforced output yields approve |
+| `budget_monotonicity` | public | Theorem 5 (structural fragment) — tighter constraint implies smaller feasible set |
+| `numerail_guarantee` | public | Top-level statement: the Numerail guarantee in per-constraint form |
 
 **Three assumptions (identical in intent to the Rocq formalization):**
 

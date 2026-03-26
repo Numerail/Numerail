@@ -156,10 +156,10 @@ cd packages/numerail && pytest tests/test_mathematical_guarantees.py -v
 # Core — machine-verifiable proof checker (3,732 checks)
 cd packages/numerail && python proof/verify_proof.py
 
-# Core — Rocq machine-checked proof (12 theorems, 0 Admitted)
+# Core — Rocq machine-checked proof (11 theorems, 0 Admitted) — requires Rocq 9.0 / Coq 8.18+
 cd packages/numerail/proof && coqc Guarantee.v
 
-# Core — Lean 4 machine-checked proof (10 theorems, 0 sorry) — requires Lean 4 + Mathlib
+# Core — Lean 4 machine-checked proof (12 theorems, 0 sorry) — requires Lean 4 + Mathlib
 cd packages/numerail/proof && lake env lean Guarantee.lean
 
 # Ext — full test suite (207 tests)
@@ -184,7 +184,7 @@ numerail/                        ← repository root
       tests/                     ← 253 tests
         test_guarantee.py        ← 46 certification tests (proof/PROOF.md §Theorem 1–9)
         test_mathematical_guarantees.py ← 99 guarantee analysis tests (one per proof claim)
-      proof/                     ← PROOF.md + verify_proof.py (3,732 checks) + Guarantee.v
+      proof/                     ← PROOF.md + verify_proof.py (3,732 checks) + Guarantee.v + Guarantee.lean
       docs/                      ← DEVELOPER_GUIDE, GUARANTEE, SPECIFICATION,
       examples/                  ←   DEPLOYMENT, REFERENCE
     numerail_ext/                ← survivability extension

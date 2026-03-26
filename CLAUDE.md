@@ -47,8 +47,10 @@ numerail-repo/                       ← repository root (tagged v5.0.0 / ext v0
         test_guarantee.py            ← 46 guarantee certification tests (most critical)
         test_mathematical_guarantees.py ← 99 guarantee analysis tests (one per proof claim)
       proof/
-        PROOF.md                     ← mathematical proof
+        PROOF.md                     ← mathematical proof (Axiom 1, Lemmas 1-3, Theorems 1-9)
         verify_proof.py              ← machine-verifiable proof checker (3,732 checks)
+        Guarantee.v                  ← Rocq/Coq machine-checked formalization (11 proofs, 0 Admitted)
+        Guarantee.lean               ← Lean 4 machine-checked formalization (12 proofs, 0 sorry)
       docs/
         DEVELOPER_GUIDE.md           ← start here for any development work
         GUARANTEE.md                 ← full guarantee specification

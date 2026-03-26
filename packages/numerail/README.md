@@ -15,7 +15,7 @@ r ∈ {APPROVE, PROJECT} ⟹ ∀ c ∈ F_t.constraints : c.evaluate(y) ≤ τ
 
 This holds for all proposed inputs, all constraint type combinations, and all solver implementations. The post-check is the trust boundary. The solver is untrusted. If the engine cannot verify admissibility, it rejects. Nothing reaches the world as "approved" or "projected" without passing the combined feasibility checker.
 
-The guarantee is proved in [`proof/PROOF.md`](proof/PROOF.md) and independently verified by `proof/verify_proof.py` (3,732 checks) and `tests/test_guarantee.py` (45 tests across 7 categories).
+The guarantee is proved in [`proof/PROOF.md`](proof/PROOF.md) and independently verified by `proof/verify_proof.py` (3,732 checks), `tests/test_guarantee.py` (46 certification tests across 7 categories), and `tests/test_mathematical_guarantees.py` (99 guarantee analysis tests, one per proof claim). Machine-checked formalizations are provided in Rocq (`proof/Guarantee.v`, 11 proofs, 0 Admitted) and Lean 4 (`proof/Guarantee.lean`, 12 proofs, 0 sorry).
 
 ## Quickstart
 
@@ -64,14 +64,23 @@ The engine is a single file (`src/numerail/engine.py`) with no dependencies beyo
 ## Verification
 
 ```bash
-# Run the full test suite (153 tests)
+# Run the full test suite (253 tests)
 pytest tests/ -v
 
-# Run only the guarantee certification suite (45 tests, 7 categories)
+# Run only the guarantee certification suite (46 tests, 7 categories)
 pytest tests/test_guarantee.py -v
+
+# Run the mathematical guarantee analysis suite (99 tests, one per proof claim)
+pytest tests/test_mathematical_guarantees.py -v
 
 # Run the machine-verifiable proof checker (3,732 checks)
 cd proof && python verify_proof.py
+
+# Rocq machine-checked proof (11 proofs, 0 Admitted) — requires Rocq 9.0 / Coq 8.18+
+cd proof && coqc Guarantee.v
+
+# Lean 4 machine-checked proof (12 proofs, 0 sorry) — requires Lean 4 + Mathlib
+cd proof && lake env lean Guarantee.lean
 ```
 
 ## Examples
