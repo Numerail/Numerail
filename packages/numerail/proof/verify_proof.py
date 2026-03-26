@@ -246,11 +246,12 @@ def verify_theorem1_structural():
     check("Theorem1", "exactly_6_reject_returns", reject_returns == 6,
           f"Found {reject_returns} REJECT return(s)")
 
-    # APPROVE guard: is_feasible check
+    # APPROVE guard: is_feasible check (tol argument required to match cfg.solver_tol)
     approve_section = source[source.index("STEP 1"):source.index("STEP 2")]
     check("Theorem1", "approve_guarded_by_is_feasible",
-          "effective.is_feasible(x)" in approve_section,
-          "APPROVE return is inside 'if effective.is_feasible(x)'")
+          "effective.is_feasible(x, cfg.solver_tol)" in approve_section
+          or "effective.is_feasible(x)" in approve_section,
+          "APPROVE return is inside 'if effective.is_feasible(x[, cfg.solver_tol])'")
 
     # PROJECT guard: postcheck_passed
     check("Theorem1", "project_guarded_by_postcheck",

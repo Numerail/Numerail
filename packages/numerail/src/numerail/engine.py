@@ -1263,7 +1263,7 @@ def enforce(
         )
 
     # STEP 1: POST-CHECK INPUT → APPROVE if feasible
-    if effective.is_feasible(x):
+    if effective.is_feasible(x, cfg.solver_tol):
         return _out(EnforcementResult.APPROVE, x, binding=effective.binding_names(x))
 
     viol_dict = effective.violations(x)

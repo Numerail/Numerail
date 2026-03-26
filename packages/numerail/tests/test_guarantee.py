@@ -48,7 +48,11 @@ class TestStructural:
 
     def test_approve_path_gated_by_is_feasible(self):
         source = inspect.getsource(enforce)
-        assert "effective.is_feasible(x)" in source
+        # Accept tol-explicit form (correct) or bare form (legacy)
+        assert (
+            "effective.is_feasible(x, cfg.solver_tol)" in source
+            or "effective.is_feasible(x)" in source
+        )
 
     def test_project_path_gated_by_postcheck(self):
         source = inspect.getsource(enforce)
@@ -460,6 +464,34 @@ class TestModes:
 
 class TestTolerance:
     """Quantifies the precision of the guarantee under different solver_tol."""
+
+    def test_approve_respects_solver_tol(self):
+        """R1 APPROVE gate must use solver_tol, not the hardcoded default.
+
+        Regression test for: tolerance mismatch between R1 gate and _out
+        defense-in-depth. Before the fix, enforce() with solver_tol=1e-10
+        would crash with AssertionError on vectors whose violation was in
+        (1e-10, 1e-6] because the R1 gate used the hardcoded 1e-6 default
+        while _out used cfg.solver_tol.
+        """
+        region = box_constraints([0, 0], [1, 1])
+
+        # Violation of 5e-7: within default 1e-6, outside 1e-10.
+        x = np.array([1.0 + 5e-7, 0.5])
+
+        # With tight solver_tol this must NOT crash — must project or reject.
+        cfg = EnforcementConfig(solver_tol=1e-10)
+        output = enforce(x, region, cfg)
+        assert output.result in (EnforcementResult.PROJECT, EnforcementResult.REJECT)
+
+        # With default solver_tol the same vector is within tolerance → APPROVE.
+        output_default = enforce(x, region)
+        assert output_default.result == EnforcementResult.APPROVE
+
+        # The guarantee holds in both cases.
+        for out in [output, output_default]:
+            if out.result != EnforcementResult.REJECT:
+                assert region.is_feasible(out.enforced_vector)
 
     @pytest.mark.parametrize("tol", [1e-9, 1e-6, 1e-4])
     def test_tolerance_precision(self, tol):
