@@ -24,16 +24,21 @@ First, the control flow of `enforce()`. There is exactly one APPROVE return and 
 
 Second, the `is_feasible()` method. This calls `is_satisfied(x, tol)` on every constraint in the region via Python's `all()`. A single failing constraint is sufficient for rejection. The conjunction is complete.
 
-Third, a defense-in-depth assertion in the emit path:
+Third, a defense-in-depth check in the emit path:
 
 ```python
 if result in (APPROVE, PROJECT):
-    assert effective.is_feasible(enforced, solver_tol)
+    if not effective.is_feasible(enforced, cfg.solver_tol):
+        raise AssertionError(
+            "Numerail invariant violated: emitted vector must satisfy "
+            "the exact combined checker for the active feasible region. "
+            "This check should never fire in correctly functioning code."
+        )
 ```
 
-This assertion is redundant with the control flow — it should never fire. Its purpose is to make the invariant visible to code reviewers and to catch implementation bugs if someone modifies the enforcement logic incorrectly.
+This check is redundant with the control flow — it should never fire. It uses an explicit `raise` rather than a bare `assert` so it cannot be stripped by `python -O`. Its purpose is to make the invariant visible to code reviewers and to catch implementation bugs if someone modifies the enforcement logic incorrectly.
 
-The guarantee is proved in `proof/PROOF.md` (Axiom 1, Lemmas 1–3, Theorems 1–9, 2 Corollaries). The proof is independently verified by `proof/verify_proof.py` (3,732 structural and property checks) and `tests/test_guarantee.py` (45 certification tests across 7 categories).
+The guarantee is proved in `proof/PROOF.md` (Axiom 1, Lemmas 1–3, Theorems 1–9, 2 Corollaries). The proof is independently verified by `proof/verify_proof.py` (3,732 structural and property checks) and `tests/test_guarantee.py` (46 certification tests across 7 categories).
 
 ## The two forms of the guarantee
 
@@ -47,7 +52,7 @@ The numerical implementation guarantee, as realized in Python with IEEE 754 doub
 
 The tolerance τ bridges the abstract mathematical model and the floating-point implementation. At the default τ = 10⁻⁶, this provides approximately 10 orders of magnitude above machine epsilon (~10⁻¹⁶). In certification testing, the worst-case observed violation was 8.51 × 10⁻¹¹ — roughly ten thousand times below the tolerance bound.
 
-The APPROVE path uses `is_feasible(x)` with the default tolerance of 10⁻⁶. The PROJECT path uses `is_feasible(y, tol=solver_tol)` where `solver_tol` is configurable (default 10⁻⁶). If `solver_tol` is increased above 10⁻⁶, the PROJECT path accepts vectors with larger violations. This is a deliberate design choice: it trades precision for solver convergence reliability in numerically difficult constraint compositions.
+Both the APPROVE and PROJECT paths use `is_feasible(x, cfg.solver_tol)`, where `solver_tol` is configurable (default 10⁻⁶). The same tolerance value is used by the R1 APPROVE gate, the `project()` post-check, and the defense-in-depth assertion in `_out()` — all three checks are consistent under any configured tolerance. If `solver_tol` is increased above 10⁻⁶, all three paths accept vectors with proportionally larger violations. This is a deliberate design choice: it trades precision for solver convergence reliability in numerically difficult constraint compositions.
 
 ## What the guarantee does not establish
 
@@ -89,7 +94,7 @@ The model. The guarantee is proposer-independent. It quantifies over proposed ve
 The guarantee is proved in `proof/PROOF.md` and independently verified by two test suites:
 
 - `proof/verify_proof.py` — 3,732 structural and property checks against the engine code. Validates every axiom, lemma, theorem, and corollary.
-- `tests/test_guarantee.py` — 45 certification tests across 7 categories: structural verification, formal property tests (mirroring Theorems 1–9), constraint type coverage, adversarial probes, randomized stress tests, enforcement mode coverage, and tolerance precision.
+- `tests/test_guarantee.py` — 46 certification tests across 7 categories: structural verification, formal property tests (mirroring Theorems 1–9), constraint type coverage, adversarial probes, randomized stress tests, enforcement mode coverage, and tolerance precision.
 
 To verify independently:
 

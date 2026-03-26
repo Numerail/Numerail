@@ -53,7 +53,7 @@ every active constraint to within tolerance τ.
 This holds for all proposed inputs, all constraint combinations, and all solver
 implementations. The guarantee is proved in
 [`packages/numerail/proof/PROOF.md`](packages/numerail/proof/PROOF.md) and
-independently verified by 3,732 machine-checked assertions, 45 certification
+independently verified by 3,732 machine-checked assertions, 46 certification
 tests, and a 99-test mathematical guarantee analysis suite that independently
 verifies every theorem against the live codebase.
 
@@ -158,6 +158,9 @@ cd packages/numerail && python proof/verify_proof.py
 
 # Core — Rocq machine-checked proof (12 theorems, 0 Admitted)
 cd packages/numerail/proof && coqc Guarantee.v
+
+# Core — Lean 4 machine-checked proof (10 theorems, 0 sorry) — requires Lean 4 + Mathlib
+cd packages/numerail/proof && lake env lean Guarantee.lean
 
 # Ext — full test suite (207 tests)
 cd packages/numerail_ext && pytest tests/ -v

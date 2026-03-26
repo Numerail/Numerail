@@ -293,6 +293,49 @@ coqc Guarantee.v
 
 ---
 
+### Lean 4 Machine-Checked Formalization
+
+`proof/Guarantee.lean` contains an independent machine-checked Lean 4 formalization of the same proof chain. It requires Lean 4 with [Mathlib](https://leanprover-community.github.io/mathlib4_docs/).
+
+**What is proved (10 theorems/lemmas, 0 sorry):**
+
+| Lean 4 name | Corresponds to |
+|---|---|
+| `is_feasible_correct` | Lemma 1 — combined checker = conjunction of individual checkers |
+| `enforcement_soundness` | **Theorem 1** — if enforce returns approve or project, the output is feasible |
+| `enforcement_soundness_per_constraint` | Theorem 1 corollary — per-constraint form |
+| `fail_closed` | Theorem 2 — all solvers fail implies reject |
+| `hard_wall_dominance` | Theorem 3 — hard wall violated implies reject |
+| `passthrough` | Theorem 9a — feasible input is approved unchanged |
+| `idempotence` | Theorem 9b — enforce applied to an already-enforced output yields approve |
+| `budget_monotonicity` | Theorem 5 (structural fragment) — tighter constraint implies smaller feasible set |
+| `numerail_guarantee` | Top-level statement: the Numerail guarantee in per-constraint form |
+
+**Three assumptions (identical in intent to the Rocq formalization):**
+
+1. **`axiom Vec : Type`** — the proposal vector is an abstract type; floating-point not modelled.
+
+2. **`axiom solver` + `axiom project_postcheck`** — the solver is a black box; `project_postcheck` states that `postcheck_passed = true` implies the returned point is feasible, directly formalising Lemma 2.
+
+3. **`axiom operational_filters_pass`** — the operational filter paths (forbidden-dimension, routing hard-reject, hybrid distance) are abstracted as a single boolean predicate.
+
+**Relationship to the Rocq formalization:**
+
+The Rocq (`Guarantee.v`) and Lean 4 (`Guarantee.lean`) formalizations are fully independent: different proof assistants, different proof kernels, different tactic languages, no shared code. Both verify identical theorem statements about the same abstract model. Acceptance by two independent proof checkers provides stronger evidence of correctness than either alone.
+
+The abstraction gap (floating-point arithmetic not modelled) and the three assumptions are the same in both formalizations.
+
+**To compile:**
+
+```bash
+cd packages/numerail/proof
+lake env lean Guarantee.lean
+```
+
+(Requires `lake` and Mathlib; see [https://leanprover-community.github.io/install/](https://leanprover-community.github.io/install/) for setup.)
+
+---
+
 ## Correspondence to Code
 
 | Proof element | Code location |
