@@ -1,41 +1,48 @@
 # Security Policy
 
-## The enforcement guarantee
+## Reporting Vulnerabilities
 
-Numerail's core safety property is Theorem 1: if `enforce()` returns APPROVE or PROJECT, the output satisfies every active constraint. A vulnerability in this context is any input, configuration, or code path that violates this guarantee — causing the engine to emit an APPROVE or PROJECT for a vector that does not satisfy the active constraints.
+If you discover a security vulnerability in Numerail, please report it responsibly by emailing **trynumerail@gmail.com**. Do not open a public issue for security vulnerabilities.
 
-## Reporting a vulnerability
+We will acknowledge receipt within 48 hours and provide an initial assessment within 7 days.
 
-If you discover a potential violation of the enforcement guarantee or any other security issue, please report it privately.
+## Threat Model
 
-**Email:** trynumerail@gmail.com
+Numerail's enforcement guarantee covers the mathematical properties of the `enforce()` function — specifically, that every APPROVE or PROJECT output satisfies every active constraint to within tolerance τ.
 
-**Do not** open a public GitHub issue for security vulnerabilities. Responsible disclosure gives us time to verify and fix the issue before it is publicly known.
+### In Scope
 
-## What to include
+The following are considered security-relevant and should be reported:
 
-- A description of the vulnerability.
-- Steps to reproduce it, or a minimal test case.
-- Which theorems or guarantees are affected.
-- The version of Numerail where you observed the issue.
+- **Guarantee bypass:** An `enforce()` output with result APPROVE or PROJECT where the enforced vector violates an active constraint beyond tolerance τ.
+- **HITL authentication bypass:** A `SupervisedGovernor` accepting a `HumanDecision` where `authenticated` is False.
+- **Audit chain corruption:** A modification, insertion, or deletion of an audit record that is not detected by `AuditChain.verify()`.
+- **Trusted context bypass:** The AI influencing a trusted field value that should be overwritten by the `TrustedContextProvider`.
+- **Policy contract digest collision:** Two distinct policy configurations producing the same SHA-256 digest.
 
-## Response
+### Out of Scope
 
-We will acknowledge receipt within 48 hours and aim to provide a fix or mitigation within 7 days for confirmed guarantee violations.
+The following are specification or deployment issues, not vulnerabilities in the enforcement engine:
 
-## Scope
+- **Specification errors:** Constraint values that do not match the deployer's intent (e.g., a cap set to 5,000 when 50 was intended).
+- **Telemetry inaccuracy:** The `TrustedContextProvider` correctly injecting values from a telemetry source that reports incorrect data.
+- **Deployment configuration:** Exposed ports, missing authentication on custom API wrappers, or misconfigured firewall rules.
+- **Model behavior:** The AI proposing adversarial or malicious actions — the enforcement engine is designed to handle arbitrary inputs, including adversarial ones.
 
-The following are in scope:
+## Known Limitations
 
-- Violations of Theorem 1 (enforcement soundness) — any code path that emits APPROVE or PROJECT for an infeasible vector.
-- Violations of Theorems 2–9 (fail-closed, hard-wall dominance, forbidden-dimension safety, budget monotonicity, rollback restoration, audit integrity, passthrough, idempotence).
-- Bypass of trusted context injection (agent-supplied values surviving the merge for declared trusted fields).
-- Bypass of scope enforcement (operations succeeding without required scopes).
-- Tampering with the audit chain that is not detected by `verify()`.
-- Digest collisions or chain linkage bypasses in `NumerailPolicyContract`.
+The following are documented architectural limitations, not vulnerabilities:
 
-The following are out of scope:
+- **Audit chain genesis hash inconsistency:** `AuditChain` (engine.py) uses `""` (empty string) as the genesis `prev_hash`, while `_HitlAuditChain` (hitl.py) uses `"0" * 64`. Both are valid sentinels. Verification tools should handle both.
+- **Policy contract signature field:** The `signature` field on `NumerailPolicyContract` is a placeholder — no signing implementation exists. The `digest` field (SHA-256) is the sole integrity verification mechanism.
+- **Non-monotonic default time source:** `DefaultTimeProvider` uses `time.time_ns() // 1_000_000` (wall clock), which can go backward on NTP adjustments. Production deployments should implement a `TrustedContextProvider` using a monotonic clock source.
+- **No multi-tenant authorization in local mode:** `NumerailSystemLocal.rollback()` accepts any `action_id` without verifying caller authorization. The production `NumerailRuntimeService` layer provides authorization via the `AuthorizationService` protocol.
+- **REST API example has no authentication:** The `rest_api_server.py` example is for development only and should not be exposed to untrusted networks.
+- **Constraint geometry is reconstructible:** An attacker with access to the enforcement API can probe the feasible region by submitting many vectors and observing the results. Rate limiting and authentication mitigate this in production.
 
-- Specification errors (wrong constraints, wrong bounds). The engine enforces whatever geometry is defined. Misconfigured constraints are a policy problem, not a security vulnerability.
-- Denial of service via computationally expensive constraint compositions. The solver chain has configurable iteration limits.
-- Dependencies (numpy, scipy). Report those to the respective projects.
+## Supported Versions
+
+| Version | Supported |
+|---|---|
+| 5.0.x | ✅ |
+| < 5.0 | ❌ |

@@ -614,6 +614,14 @@ class SupervisedGovernor:
     ) -> None:
         self._governor = governor
         self._gateway = gateway
+        if type(gateway).__name__ == "LocalApprovalGateway":
+            import logging
+            logging.getLogger(__name__).warning(
+                "SupervisedGovernor initialized with LocalApprovalGateway — "
+                "this gateway is for development and testing only. "
+                "Production deployments must implement the ApprovalGateway "
+                "protocol with real authentication and a human notification channel."
+            )
         self._triggers = triggers
         self._trusted_context_provider = trusted_context_provider
         self._time_ms_fn = _time_ms_fn

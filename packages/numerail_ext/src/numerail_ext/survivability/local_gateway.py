@@ -38,6 +38,13 @@ from numerail.protocols import (
 class LocalApprovalGateway:
     """In-process approval gateway for testing and local development.
 
+    ⚠️ DEVELOPMENT AND TESTING ONLY — not for production use.
+    In auto-approve mode, every review is automatically approved without human
+    oversight. In manual mode, decisions must be pre-programmed via
+    program_decision(). Production deployments must implement the
+    ApprovalGateway protocol with real reviewer authentication and a human
+    notification channel (Slack, dashboard, email, etc.).
+
     Implements the ``ApprovalGateway`` protocol with three modes of
     operation:
 

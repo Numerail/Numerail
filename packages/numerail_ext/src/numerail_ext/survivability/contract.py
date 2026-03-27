@@ -308,6 +308,9 @@ class NumerailPolicyContract:
     enforcement: ContractEnforcement
     budgets: Tuple[ContractBudget, ...]
     digest: str
+    # NOT CURRENTLY IMPLEMENTED — placeholder for future signing support.
+    # The digest field is the sole integrity verification mechanism.
+    # Do not rely on this field for compliance or provenance verification.
     signature: Optional[str] = None
 
     # ── Content-addressable identity ─────────────────────────────────

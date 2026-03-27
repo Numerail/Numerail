@@ -18,6 +18,8 @@ import time as _time
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
+import numpy as np
+
 from numerail.engine import RollbackResult, _utc_now
 from numerail.errors import AuthorizationError
 from numerail.protocols import LockedRuntimeHead, ServiceRequest
@@ -249,6 +251,15 @@ class NumerailSystemLocal:
         if action_id is None:
             self._counter += 1
             action_id = f"local_{self._counter}"
+
+        # ── Dtype validation ─────────────────────────────────────────
+        if isinstance(proposed_action, np.ndarray) and proposed_action.dtype != np.float64:
+            logger.warning(
+                "Input vector dtype is %s, casting to float64 for enforcement. "
+                "Pass float64 arrays to avoid implicit type promotion.",
+                proposed_action.dtype,
+            )
+            proposed_action = proposed_action.astype(np.float64)
 
         # ── Trusted context injection ────────────────────────────────
         original_proposal: dict = dict(proposed_action)

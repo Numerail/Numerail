@@ -1,3 +1,12 @@
+# =========================================================================
+# ⚠️  DEVELOPMENT ONLY
+#
+# This server has no authentication, no rate limiting, and no TLS.
+# Do not expose to untrusted networks or run in production.
+# For production use, implement authentication via NumerailRuntimeService
+# with an AuthorizationService provider.
+# =========================================================================
+
 """Numerail REST API server — wraps NumerailSystemLocal in a FastAPI application.
 
 Three endpoints
