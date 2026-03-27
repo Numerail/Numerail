@@ -7,7 +7,7 @@ The engine itself is repository-agnostic; these Protocols are the integration su
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, FrozenSet, Optional, Sequence
 
 try:
     from typing import Protocol
@@ -69,3 +69,59 @@ class ServiceRequest:
     scopes: Sequence[str] = field(default_factory=lambda: ["enforce"])
     trusted_context: Optional[Dict[str, float]] = None
     execution_topic: Optional[str] = None
+
+
+class TrustedContextProvider(Protocol):
+    """Provider of server-authoritative trusted field values.
+
+    Trusted fields are values that the AI must not control. The provider's
+    values overwrite the AI's proposed values for matching schema fields
+    before enforcement, ensuring that safety-critical information always
+    comes from server-authoritative sources rather than the model's claims.
+
+    ``current_time_ms`` is the most critical trusted field: every temporal
+    constraint — shift windows, freshness checks, budget period boundaries,
+    expiry windows — depends on the wall-clock time.  Allowing the model to
+    supply its own time value would let it manipulate all time-based
+    constraints simultaneously with a single field.
+
+    Implementing a provider
+    -----------------------
+    Read each value from your monitoring stack or NTP at call time.  Do not
+    cache values across calls; the provider is called once per enforce() and
+    must return a fresh reading.
+
+    Example::
+
+        class MonitoringStackProvider:
+            def get_trusted_context(self) -> dict[str, float]:
+                return {
+                    "current_time_ms": float(ntp_client.time_ms()),
+                    "current_gpu_util": metrics.gpu_utilization(),
+                    "current_api_util": metrics.api_utilization(),
+                }
+
+            @property
+            def trusted_field_names(self) -> frozenset[str]:
+                return frozenset({
+                    "current_time_ms", "current_gpu_util", "current_api_util",
+                })
+    """
+
+    def get_trusted_context(self) -> Dict[str, float]:
+        """Return a fresh dict of field_name → authoritative_value.
+
+        Called once per enforce() call.  The returned values overwrite the
+        AI's proposed values for any key that exists in the active schema.
+        Keys that are not in the schema are silently skipped.
+        """
+        ...
+
+    @property
+    def trusted_field_names(self) -> FrozenSet[str]:
+        """The set of field names this provider considers authoritative.
+
+        Used for documentation and audit purposes; the runtime injection
+        iterates ``get_trusted_context()`` directly.
+        """
+        ...

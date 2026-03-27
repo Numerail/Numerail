@@ -72,6 +72,126 @@ result = local.enforce(
 # The large GPU lease becomes infeasible under real utilization → REJECT
 ```
 
+### Automatic trusted context injection via TrustedContextProvider
+
+The service-layer mechanism described above requires the orchestrator to supply
+trusted values explicitly on each call.  For fields whose values are always
+server-authoritative — especially the wall-clock time — you can eliminate the
+call-site burden by attaching a `TrustedContextProvider` to `NumerailSystemLocal`
+at construction.  The provider is called automatically on every `enforce()` call.
+
+```python
+from numerail.local import NumerailSystemLocal, DefaultTimeProvider
+
+# DefaultTimeProvider is the default — inject current_time_ms on every call.
+local = NumerailSystemLocal(config)
+
+# Custom provider — read authoritative values from your monitoring stack.
+class MonitoringProvider:
+    def get_trusted_context(self):
+        return {
+            "current_time_ms": float(ntp_client.time_ms()),
+            "current_gpu_util": metrics.gpu_utilization(),
+            "current_api_util": metrics.api_utilization(),
+        }
+    @property
+    def trusted_field_names(self):
+        return frozenset({"current_time_ms", "current_gpu_util", "current_api_util"})
+
+local = NumerailSystemLocal(config, trusted_context_provider=MonitoringProvider())
+result = local.enforce(ai_proposal)
+```
+
+The provider's values overwrite matching schema fields before the enforcement call.
+Fields returned by the provider that are not in the active schema are silently skipped.
+A `WARNING` log is emitted for every field where the AI's proposed value differed
+from the authoritative value, providing a real-time audit trail of attempted spoofing.
+
+#### Why `current_time_ms` is the most critical trusted field
+
+Every temporal constraint — shift windows, budget period boundaries, freshness
+expiry checks, authorization expiry — depends on the wall-clock time.  If the
+model can supply its own time value it can simultaneously manipulate all
+time-based constraints by asserting an earlier timestamp.  `current_time_ms` is
+therefore the default trusted field in `DefaultTimeProvider`.
+
+**Why milliseconds, not nanoseconds.**  `float64` can represent integers exactly
+up to 2^53 ≈ 9.0 × 10^15.  The current Unix time in milliseconds is
+~1.7 × 10^12, comfortably within range.  In nanoseconds it is ~1.7 × 10^18,
+which exceeds the exact-integer range and causes silent rounding errors in
+temporal constraints.  Always store and compare wall-clock time as milliseconds
+in float64 fields.
+
+#### Fields that should be trusted in production deployments
+
+| Field | Why it must be server-authoritative |
+|-------|-------------------------------------|
+| `current_time_ms` | Every temporal constraint depends on it; agent spoofing shifts all time-based gates simultaneously |
+| `shift_start_ms` | Defines when the current budget period began; agent control lets it reset the clock |
+| `shift_end_ms` | Defines when the budget period ends; agent control lets it extend authority indefinitely |
+| `gpu_utilization` | Used in headroom constraints; a spoofed low value bypasses the GPU utilisation ceiling |
+| `api_utilization` | Same for API headroom constraints |
+| `db_utilization` | Same for database utilisation constraints |
+| `queue_depth` | Same for queue-depth headroom constraints |
+| `error_rate` | Determines whether the system is in a degraded state; agent control masks failures |
+| `memory_utilization` | Same as GPU utilisation for memory constraints |
+| `controller_gpu_reserve` | If agent-controlled, can be set to zero, eliminating protected controller capacity |
+| `controller_memory_reserve` | Same for memory controller reserves |
+| `controller_api_reserve` | Same for API controller reserves |
+| `budget_gpu_remaining` | Determines the remaining GPU budget; inflation lets the agent overspend |
+| `budget_api_remaining` | Same for API budget |
+| `budget_mutations_remaining` | Same for cloud mutation budget |
+| `breaker_mode` | If agent-controlled, the agent can keep the breaker in CLOSED mode under genuine stress |
+| `state_version` | Monotone counter preventing replay attacks using older state |
+| `disturbance_margins` | If agent-controlled, can be set to zero, eliminating safety margins |
+
+#### Implementing a production TrustedContextProvider
+
+```python
+class ProductionTrustedProvider:
+    """Read authoritative values from infrastructure on every call."""
+
+    def get_trusted_context(self) -> dict[str, float]:
+        # Use NTP for wall-clock time — never the local clock unchecked.
+        current_time = float(ntp_client.synchronized_time_ms())
+        # Read utilisation from your monitoring stack (Prometheus, Datadog, etc.)
+        return {
+            "current_time_ms": current_time,
+            "current_gpu_util": prometheus.query("gpu_utilization"),
+            "current_api_util": prometheus.query("api_utilization"),
+            "current_db_util": prometheus.query("db_utilization"),
+            "budget_gpu_remaining": budget_service.remaining("gpu"),
+            "budget_api_remaining": budget_service.remaining("api"),
+        }
+
+    @property
+    def trusted_field_names(self) -> frozenset[str]:
+        return frozenset({
+            "current_time_ms", "current_gpu_util", "current_api_util",
+            "current_db_util", "budget_gpu_remaining", "budget_api_remaining",
+        })
+```
+
+#### The `trusted_overrides` audit field
+
+Every `enforce()` call returns a `SystemEnforcementResult` whose `trusted_overrides`
+attribute maps field names to `(ai_proposed_value, authoritative_value)` tuples for
+every field where the provider's value differed from the AI's claim by more than 1e-9.
+
+A non-empty `trusted_overrides` is an observable signal of attempted policy
+manipulation: the model proposed a value for a field it is not permitted to control,
+and the server's authoritative value was substituted before enforcement.  Log and
+alert on non-empty `trusted_overrides` in production; a model that consistently
+claims low utilisation when the real value is high is exhibiting a systematic
+pressure against its own governance boundary.
+
+```python
+result = local.enforce(ai_proposal)
+if result.trusted_overrides:
+    for field, (ai_val, auth_val) in result.trusted_overrides.items():
+        alert(f"Trusted field spoofing: {field}: AI={ai_val:.4f} auth={auth_val:.4f}")
+```
+
 ## Budget lifecycle
 
 Budgets make the feasible region time-varying. Under nonnegative consumption mode, remaining budget is non-increasing, the targeted bound is non-increasing, and the corresponding half-space is non-expanding. The region shrinks monotonically as resources are consumed.

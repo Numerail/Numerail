@@ -20,6 +20,7 @@ Freshness architecture (three layers):
 
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 from time import time_ns
 from typing import Any, Mapping, Optional
@@ -61,6 +62,7 @@ class StateTransitionGovernor:
     digestor: Digestor
     thresholds: BreakerThresholds
     bootstrap_budgets: Optional[Mapping[str, float]] = None
+    trusted_context_provider: Optional[Any] = None  # TrustedContextProvider
 
     def __post_init__(self) -> None:
         self.breaker = BreakerStateMachine(self.thresholds)
@@ -132,6 +134,19 @@ class StateTransitionGovernor:
         execution_topic: str = "runtime",
     ) -> GovernedStep:
         """Evaluate telemetry, synthesize envelope, enforce through V5."""
+
+        # If a TrustedContextProvider is configured, overwrite snapshot fields
+        # with server-authoritative values before any other processing.
+        # The provider is the authority; the snapshot is the carrier.
+        if self.trusted_context_provider is not None:
+            tc = self.trusted_context_provider.get_trusted_context()
+            replace_kwargs: dict[str, Any] = {}
+            for field_name, value in tc.items():
+                if hasattr(snapshot, field_name):
+                    existing = getattr(snapshot, field_name)
+                    replace_kwargs[field_name] = type(existing)(value)
+            if replace_kwargs:
+                snapshot = dataclasses.replace(snapshot, **replace_kwargs)
 
         # Real-clock freshness check.  Forces SAFE_STOP if telemetry is stale.
         # This is a supervisory precondition, not a V5 kernel theorem.

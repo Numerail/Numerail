@@ -40,12 +40,13 @@ numerail-repo/                       ← repository root (tagged v5.0.0 / ext v0
         engine.py                    ← THE mathematical kernel (single file, no external deps beyond numpy/scipy)
         parser.py                    ← policy parser + lint_config
         service.py                   ← production runtime service
-        local.py                     ← in-memory local mode
-        protocols.py                 ← typed Protocol interfaces
+        local.py                     ← in-memory local mode + DefaultTimeProvider + SystemEnforcementResult
+        protocols.py                 ← typed Protocol interfaces + TrustedContextProvider
         errors.py                    ← production-layer exceptions
-      tests/                         ← 253 tests total
+      tests/                         ← 265 tests total
         test_guarantee.py            ← 46 guarantee certification tests (most critical)
         test_mathematical_guarantees.py ← 99 guarantee analysis tests (one per proof claim)
+        test_trusted_context.py      ← 10 trusted context injection tests
       proof/
         PROOF.md                     ← mathematical proof (Axiom 1, Lemmas 1-3, Theorems 1-9)
         verify_proof.py              ← machine-verifiable proof checker (3,732 checks)
