@@ -20,16 +20,16 @@ pip install -e ".[dev]"
 ## Running tests
 
 ```bash
-# Core — 153 tests
+# Core — 265 tests
 cd packages/numerail && pytest tests/ -v
 
-# Guarantee certification — 45 tests
+# Guarantee certification — 46 tests
 cd packages/numerail && pytest tests/test_guarantee.py -v
 
 # Proof checker — 3,732 assertions
 cd packages/numerail && python proof/verify_proof.py
 
-# Extension — 207 tests
+# Extension — 306 tests
 cd packages/numerail_ext && pytest tests/ -v
 ```
 

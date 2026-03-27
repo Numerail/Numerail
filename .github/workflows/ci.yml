@@ -68,7 +68,7 @@ jobs:
       - name: Install ext
         run: pip install -e ".[dev]"
 
-      - name: Test suite (207 tests)
+      - name: Test suite (306 tests)
         run: pytest tests/ -v --tb=short
 
   # ── integration ───────────────────────────────────────────────────────
