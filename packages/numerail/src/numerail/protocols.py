@@ -7,12 +7,39 @@ The engine itself is repository-agnostic; these Protocols are the integration su
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, FrozenSet, Optional, Sequence
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Dict, FrozenSet, Optional, Sequence, Tuple
+
+import numpy as np
 
 try:
     from typing import Protocol
 except ImportError:
     from typing_extensions import Protocol
+
+if TYPE_CHECKING:
+    pass  # Forward-reference guard for EnforcementOutput
+
+
+__all__ = [
+    # Existing protocols and types
+    "TransactionManager",
+    "AuthorizationService",
+    "PolicyRepository",
+    "RuntimeRepository",
+    "LedgerRepository",
+    "AuditRepository",
+    "MetricsRepository",
+    "OutboxRepository",
+    "LockedRuntimeHead",
+    "ServiceRequest",
+    "TrustedContextProvider",
+    # HITL types
+    "HumanDecisionAction",
+    "HumanDecision",
+    "ReviewOutcome",
+    "ApprovalGateway",
+]
 
 
 class TransactionManager(Protocol):
@@ -123,5 +150,152 @@ class TrustedContextProvider(Protocol):
 
         Used for documentation and audit purposes; the runtime injection
         iterates ``get_trusted_context()`` directly.
+        """
+        ...
+
+
+# ── Human-in-the-loop types ──────────────────────────────────────────────
+
+
+class HumanDecisionAction(str, Enum):
+    """Actions a human reviewer can take on a pending enforcement decision.
+
+    - APPROVE: reviewer authorizes execution of the enforced action as-is
+    - DENY: reviewer blocks execution; may include guidance bounds for the
+      next attempt via the ``guidance`` field of ``HumanDecision``
+    - MODIFY: reviewer proposes a different vector, which will be re-enforced
+      before execution; the modified vector is provided in
+      ``HumanDecision.modified_vector``
+    - ESCALATE: reviewer lacks authority or context; action is forwarded to
+      a higher-authority reviewer (up to ``max_escalation_depth`` times)
+    - DEFER: reviewer needs more time; the review timeout is extended once
+    """
+
+    APPROVE = "approve"
+    DENY = "deny"
+    MODIFY = "modify"
+    ESCALATE = "escalate"
+    DEFER = "defer"
+
+
+@dataclass(frozen=True)
+class HumanDecision:
+    """A human reviewer's decision on a pending enforcement action.
+
+    The ``authenticated`` field must be ``True`` for the decision to be
+    accepted — the ``ApprovalGateway`` implementation is responsible for
+    verifying reviewer identity.  The ``SupervisedGovernor`` will reject
+    decisions where ``authenticated`` is ``False``.
+
+    Attributes
+    ----------
+    review_id : str
+        The review identifier returned by ``ApprovalGateway.submit_for_review``.
+    action : HumanDecisionAction
+        The reviewer's chosen action.
+    reviewer_id : str
+        Identifier of the authenticated reviewer.
+    authenticated : bool
+        Whether the reviewer's identity has been verified by the gateway.
+    timestamp_ms : float
+        Wall-clock time of the decision in milliseconds since the Unix epoch.
+    reason : str
+        Human-readable explanation of the decision.
+    modified_vector : np.ndarray or None
+        Only present when ``action`` is ``MODIFY``.  The reviewer's proposed
+        replacement vector, which will be re-enforced before execution.
+    guidance : dict or None
+        Optional bounds hints when ``action`` is ``DENY``, mapping field name
+        to ``(min_value, max_value)``.  Provided as advisory guidance for the
+        next attempt; the engine is the enforced authority.
+    escalation_depth : int
+        Number of times this review has been escalated (0 = not escalated).
+    """
+
+    review_id: str
+    action: HumanDecisionAction
+    reviewer_id: str
+    authenticated: bool
+    timestamp_ms: float
+    reason: str
+    modified_vector: Optional[np.ndarray] = None
+    guidance: Optional[Dict[str, Tuple[float, float]]] = None
+    escalation_depth: int = 0
+
+
+class ReviewOutcome(str, Enum):
+    """Final outcome of a supervised enforcement cycle.
+
+    - EXECUTED: action passed enforcement (and review if triggered) and was
+      committed to execution
+    - PENDING_REVIEW: action passed enforcement but a review trigger fired;
+      awaiting a human decision
+    - DENIED: action was rejected by enforcement, denied by a human reviewer,
+      or the reviewer's modification was infeasible after re-enforcement
+    - EXPIRED: review timeout reached with no human decision; action denied
+      by default (fail-closed)
+    """
+
+    EXECUTED = "executed"
+    PENDING_REVIEW = "pending_review"
+    DENIED = "denied"
+    EXPIRED = "expired"
+
+
+class ApprovalGateway(Protocol):
+    """Abstract gateway for human-in-the-loop approval.
+
+    Implementations MUST authenticate the reviewer before accepting a
+    decision.  The ``SupervisedGovernor`` will reject decisions where
+    ``authenticated`` is ``False``.
+
+    The notification mechanism (Slack, dashboard, email, mobile, terminal)
+    is deployment-specific and outside the scope of this protocol.
+    Implementations are free to notify reviewers synchronously or
+    asynchronously on ``submit_for_review``.
+    """
+
+    def submit_for_review(
+        self,
+        enforcement_output: Any,
+        trigger_reason: str,
+        context: Dict[str, Any],
+    ) -> str:
+        """Submit an action for human review. Returns a review_id.
+
+        Parameters
+        ----------
+        enforcement_output : EnforcementOutput
+            The kernel enforcement result to be reviewed.
+        trigger_reason : str
+            Human-readable description of why the review was triggered
+            (e.g. ``"on_reject"`` or ``"on_safe_stop_entry"``).
+        context : dict
+            Operational context for the reviewer.  Should include
+            ``breaker_mode``, ``budget_state``, ``policy_version``,
+            and any relevant operational context.
+
+        Returns
+        -------
+        str
+            A unique review_id that can be passed to ``poll_decision``
+            and ``cancel_review``.
+        """
+        ...
+
+    def poll_decision(self, review_id: str) -> Optional[HumanDecision]:
+        """Non-blocking poll for a human decision.
+
+        Returns ``None`` if the reviewer has not decided yet.  Callers
+        should poll periodically and handle the ``None`` case by waiting
+        or timing out according to ``HumanReviewTriggers.review_timeout_seconds``.
+        """
+        ...
+
+    def cancel_review(self, review_id: str) -> None:
+        """Cancel a pending review.
+
+        Used when the action expires or is superseded.  Implementations
+        should notify the reviewer that the review is no longer needed.
         """
         ...

@@ -85,6 +85,10 @@ from numerail.protocols import (
     OutboxRepository,
     LockedRuntimeHead,
     ServiceRequest,
+    ApprovalGateway,
+    HumanDecision,
+    HumanDecisionAction,
+    ReviewOutcome,
 )
 from numerail.parser import PolicyParser, lint_config
 from numerail.service import NumerailRuntimeService
