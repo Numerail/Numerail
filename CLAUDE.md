@@ -69,6 +69,21 @@ numerail-repo/                       ← repository root (tagged v5.0.0 / ext v0
         autonomous_agent_governor.py ← 20-step simulation: breaker transitions, budget depletion, rollback
         rest_api_server.py           ← FastAPI server wrapping NumerailSystemLocal (3 endpoints)
         rest_api_client.py           ← stdlib-only client exercising all three server endpoints
+        live_demo/                   ← self-contained real-time demo (FastAPI + WebSocket dashboard)
+          simulate.py                ← scripted 5-phase simulation generator (no LLM key required)
+          backend.py                 ← FastAPI backend on localhost:8000, WebSocket event stream
+          dashboard.html             ← self-contained dark-theme SPA (no external CDN)
+    numerail_learn/                  ← RL from enforcement decisions (v0.1.0), requires numerail + numerail-ext
+      src/numerail_learn/
+        experience.py                ← EnforcementExperience dataclass + EnforcementExperienceBuffer (thread-safe circular buffer)
+        reward.py                    ← EnforcementRewardShaper + conservative/permissive/strict presets
+        adapter.py                   ← to_sft_examples, to_dpo_pairs, to_ppo_episodes, to_analytics_dataframe
+        orchestrator.py              ← EnforcementRLOrchestrator (collect-train-evaluate cycle, improvement tracking)
+      tests/                         ← 40 tests
+        test_experience.py           ← 13 buffer tests (record, eviction, sampling, pairs, thread safety, JSON)
+        test_reward.py               ← 12 reward tests (components, presets, dimension feedback)
+        test_adapter.py              ← 8 adapter tests (SFT, DPO, PPO, analytics, corrected_tool_call)
+        test_orchestrator.py         ← 10 orchestrator tests (record_step, episode boundary, export, reports, save/load)
     numerail_ext/                    ← survivability extension (v0.4.0), requires numerail ≥ 5.0.0
       src/numerail_ext/survivability/
         breaker.py                   ← BreakerStateMachine

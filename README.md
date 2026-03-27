@@ -143,7 +143,7 @@ Full benchmark report (72 benchmarks): [`packages/numerail/tests/BENCHMARK_REPOR
 
 ## Packages
 
-This repository contains two packages with a clean dependency relationship.
+This repository contains three packages with a clean dependency relationship.
 
 ### `numerail` — core enforcement kernel
 
@@ -179,6 +179,22 @@ packages/numerail_ext/
 Provides the breaker state machine, `IncidentCommanderTransitionModel`, `StateTransitionGovernor`, global default policy pack, `NumerailPolicyContract` (content-addressable, chain-linked policy interchange), `SupervisedGovernor` (human-in-the-loop enforcement), and `LocalApprovalGateway` for development and testing.
 
 → [Extension README](packages/numerail_ext/README.md)
+
+### `numerail-learn` — reinforcement learning from enforcement
+
+Converts enforcement decisions into training data for LLMs. Requires `numerail` and `numerail-ext`.
+packages/numerail_learn/
+
+| What | Value |
+|---|---|
+| Version | 0.1.0 |
+| Python | ≥ 3.10 |
+| Dependencies | numerail ≥ 5.0.0, numerail-ext ≥ 0.4.0, numpy ≥ 1.21 |
+| License | MIT |
+
+Provides the enforcement experience buffer, reward shaping (conservative/permissive/strict presets), training data adapters (SFT, DPO, PPO), and the orchestrator for tracking model improvement over time.
+
+→ [Learn README](packages/numerail_learn/README.md)
 
 ---
 
@@ -243,56 +259,67 @@ python packages/numerail/examples/hello_world.py
 ---
 
 ## Repository Layout
+
+```
 numerail/                        ← repository root
 packages/
-numerail/                    ← core enforcement kernel
-src/numerail/
-engine.py                ← mathematical kernel (single file, ~2,400 lines)
-parser.py                ← policy parser + lint_config
-service.py               ← production runtime service
-local.py                 ← NumerailSystemLocal + DefaultTimeProvider
-protocols.py             ← typed Protocol interfaces + HITL types
-errors.py                ← production-layer exceptions
-py.typed                 ← PEP 561 marker
-tests/                     ← 265 tests
-test_guarantee.py        ← 46 certification tests (proof/PROOF.md §Theorem 1–9)
-test_mathematical_guarantees.py ← 99 guarantee analysis tests (one per proof claim)
-test_trusted_context.py  ← trusted context injection tests
-BENCHMARK_REPORT.md      ← 72 performance benchmarks
-proof/
-PROOF.md                 ← Axiom 1, Lemmas 1–3, Theorems 1–9, 2 Corollaries
-verify_proof.py          ← 3,732 structural/property checks
-Guarantee.v              ← Rocq/Coq formalization (11 theorems, 0 Admitted)
-Guarantee.lean           ← Lean 4 + Mathlib formalization (12 theorems, 0 sorry)
-docs/                      ← DEVELOPER_GUIDE, GUARANTEE, SPECIFICATION,
-DEPLOYMENT, REFERENCE
-examples/
-hello_world.py           ← 14-step full-stack smoke test
-HELLO_WORLD_REPORT.md    ← verified performance report
-numerail_ext/                ← survivability extension
-src/numerail_ext/survivability/
-breaker.py               ← BreakerStateMachine (5 modes, hysteretic transitions)
-transition_model.py      ← IncidentCommanderTransitionModel (13-field monotone caps)
-policy_builder.py        ← build_v5_policy_from_envelope()
-global_default.py        ← build_global_default() (30 fields, ~80 constraints)
-governor.py              ← StateTransitionGovernor (12-step lifecycle)
-contract.py              ← NumerailPolicyContract (SHA-256, chain-linked)
-hitl.py                  ← SupervisedGovernor + review profiles + audit helpers
-local_gateway.py         ← LocalApprovalGateway (development/testing)
-local_backend.py         ← LocalNumerailBackend
-validation.py            ← validate_receipt_against_grant()
-types.py                 ← shared data types and Protocols
-py.typed                 ← PEP 561 marker
-tests/                     ← 306 tests
-test_integration.py      ← 10 integration tests (full governor lifecycle)
-test_hitl_foundation.py  ← 45 HITL foundation tests
-test_hitl_supervised.py  ← 44 SupervisedGovernor tests
+  numerail/                    ← core enforcement kernel
+    src/numerail/
+      engine.py                ← mathematical kernel (single file, ~2,400 lines)
+      parser.py                ← policy parser + lint_config
+      service.py               ← production runtime service
+      local.py                 ← NumerailSystemLocal + DefaultTimeProvider
+      protocols.py             ← typed Protocol interfaces + HITL types
+      errors.py                ← production-layer exceptions
+      py.typed                 ← PEP 561 marker
+    tests/                     ← 265 tests
+      test_guarantee.py        ← 46 certification tests (proof/PROOF.md §Theorem 1–9)
+      test_mathematical_guarantees.py ← 99 guarantee analysis tests (one per proof claim)
+      test_trusted_context.py  ← trusted context injection tests
+      BENCHMARK_REPORT.md      ← 72 performance benchmarks
+    proof/
+      PROOF.md                 ← Axiom 1, Lemmas 1–3, Theorems 1–9, 2 Corollaries
+      verify_proof.py          ← 3,732 structural/property checks
+      Guarantee.v              ← Rocq/Coq formalization (11 theorems, 0 Admitted)
+      Guarantee.lean           ← Lean 4 + Mathlib formalization (12 theorems, 0 sorry)
+    docs/                      ← DEVELOPER_GUIDE, GUARANTEE, SPECIFICATION,
+                                  DEPLOYMENT, REFERENCE, REGULATORY
+    examples/
+      hello_world.py           ← 14-step full-stack smoke test
+      HELLO_WORLD_REPORT.md    ← verified performance report
+      live_demo/               ← real-time proof of concept (localhost, no API key)
+  numerail_ext/                ← survivability extension
+    src/numerail_ext/survivability/
+      breaker.py               ← BreakerStateMachine (5 modes, hysteretic transitions)
+      transition_model.py      ← IncidentCommanderTransitionModel (13-field monotone caps)
+      policy_builder.py        ← build_v5_policy_from_envelope()
+      global_default.py        ← build_global_default() (30 fields, ~80 constraints)
+      governor.py              ← StateTransitionGovernor (12-step lifecycle)
+      contract.py              ← NumerailPolicyContract (SHA-256, chain-linked)
+      hitl.py                  ← SupervisedGovernor + review profiles + audit helpers
+      local_gateway.py         ← LocalApprovalGateway (development/testing)
+      local_backend.py         ← LocalNumerailBackend
+      validation.py            ← validate_receipt_against_grant()
+      types.py                 ← shared data types and Protocols
+      py.typed                 ← PEP 561 marker
+    tests/                     ← 306 tests
+      test_integration.py      ← 10 integration tests (full governor lifecycle)
+      test_hitl_foundation.py  ← 45 HITL foundation tests
+      test_hitl_supervised.py  ← 44 SupervisedGovernor tests
+  numerail_learn/              ← reinforcement learning from enforcement
+    src/numerail_learn/
+      experience.py            ← EnforcementExperienceBuffer
+      reward.py                ← EnforcementRewardShaper + presets
+      adapter.py               ← SFT, DPO, PPO training adapters
+      orchestrator.py          ← EnforcementRLOrchestrator
+    tests/                     ← 43 tests
 .github/workflows/
-ci.yml                       ← 3 jobs: core, ext, integration
-release.yml                  ← 4 jobs: verify → publish (PyPI trusted publishing)
+  ci.yml                       ← 3 jobs: core, ext, integration
+  release.yml                  ← 4 jobs: verify → publish (PyPI trusted publishing)
 CLAUDE.md                      ← Claude Code project context
 CHANGELOG.md
 README.md                      ← this file
+```
 
 ---
 
