@@ -60,6 +60,7 @@ numerail-repo/                       ← repository root (tagged v5.0.0 / ext v0
         SPECIFICATION.md             ← how to write constraint specifications
         DEPLOYMENT.md                ← production deployment guide
         REFERENCE.md                 ← API reference
+        REGULATORY.md                ← How regulatory bodies can use Numerail — policy packs, hosted APIs, framework mappings (NIST AI RMF, EU AI Act, ISO 42001, CHT AI Roadmap)
       examples/
         hello_world.py               ← 14-step full-stack smoke test (all theorems, both packages)
         HELLO_WORLD_REPORT.md        ← verified performance report for hello_world.py

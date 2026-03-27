@@ -348,6 +348,7 @@ None of this is unique to Numerail. Every rule-based governance system in every 
 | Mathematical proof | [`packages/numerail/proof/PROOF.md`](packages/numerail/proof/PROOF.md) |
 | Performance benchmarks | [`packages/numerail/tests/BENCHMARK_REPORT.md`](packages/numerail/tests/BENCHMARK_REPORT.md) |
 | Hello world report | [`packages/numerail/examples/HELLO_WORLD_REPORT.md`](packages/numerail/examples/HELLO_WORLD_REPORT.md) |
+| Regulatory bodies | [`packages/numerail/docs/REGULATORY.md`](packages/numerail/docs/REGULATORY.md) |
 | Changelog | [`CHANGELOG.md`](CHANGELOG.md) |
 
 ---
