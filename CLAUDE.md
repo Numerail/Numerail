@@ -41,12 +41,14 @@ numerail-repo/                       ← repository root (tagged v5.0.0 / ext v0
         parser.py                    ← policy parser + lint_config
         service.py                   ← production runtime service
         local.py                     ← in-memory local mode + DefaultTimeProvider + SystemEnforcementResult
-        protocols.py                 ← typed Protocol interfaces + TrustedContextProvider
+        protocols.py                 ← typed Protocol interfaces + TrustedContextProvider + ApprovalGateway + HumanDecision + HumanDecisionAction + ReviewOutcome
         errors.py                    ← production-layer exceptions
       tests/                         ← 265 tests total
         test_guarantee.py            ← 46 guarantee certification tests (most critical)
         test_mathematical_guarantees.py ← 99 guarantee analysis tests (one per proof claim)
-        test_trusted_context.py      ← 10 trusted context injection tests
+        test_trusted_context.py      ← 12 trusted context injection tests
+        BENCHMARK_REPORT.md          ← verified performance report for benchmark_performance.py
+        benchmark_performance.py     ← 72 standalone benchmarks (not part of pytest suite)
       proof/
         PROOF.md                     ← mathematical proof (Axiom 1, Lemmas 1-3, Theorems 1-9)
         verify_proof.py              ← machine-verifiable proof checker (3,732 checks)
@@ -93,7 +95,7 @@ numerail-repo/                       ← repository root (tagged v5.0.0 / ext v0
 ## How to Run Tests
 
 ```bash
-# Core — full test suite (253 tests)
+# Core — full test suite (265 tests)
 cd packages/numerail && pytest tests/ -v
 
 # Core — guarantee certification only (46 tests, most critical)

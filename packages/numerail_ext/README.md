@@ -51,8 +51,9 @@ assert contract.verify_digest()
 
 ```bash
 pytest tests/ -v                           # 306 tests total
-pytest tests/test_hitl_supervised.py -v   # 44 SupervisedGovernor tests
-pytest tests/test_integration.py -v       # integration only — full governor lifecycle
+pytest tests/test_hitl_foundation.py -v  # 45 HITL foundation tests (types, triggers, gateway)
+pytest tests/test_hitl_supervised.py -v  # 44 SupervisedGovernor tests (TOCTOU, decisions, audit, expiry)
+pytest tests/test_integration.py -v      # 10 integration tests — full governor lifecycle
 ```
 
 ## Requires
