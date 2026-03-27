@@ -283,3 +283,72 @@ The check uses an explicit `raise` statement (not the `assert` keyword) so it ca
 
 ---
 
+## Human-in-the-Loop Supervision (`numerail_ext`)
+
+`SupervisedGovernor` (in `numerail_ext.survivability`) wraps `StateTransitionGovernor` with a HITL gate between enforcement and execution.  It is appropriate for high-stakes or regulated deployments where human oversight of specific enforcement events is required.
+
+### How it works
+
+1. `SupervisedGovernor.step()` calls the inner governor's `enforce_next_step()`.
+2. The result is evaluated against a `HumanReviewTriggers` configuration.
+3. **NOTIFY triggers** — the reviewer is notified asynchronously; execution proceeds immediately (`EXECUTED` or `DENIED` depending on the enforcement decision).
+4. **BLOCKING triggers** — the action enters `PENDING_REVIEW`.  Execution pauses until `resolve_pending()` processes a human decision (or the timeout expires, fail-closed → `DENIED`).
+
+### Review profiles
+
+| Profile | Timeout | Triggers |
+|---------|---------|---------|
+| `ADVISORY` | 600 s | Safe-stop, audit-chain failure, budget exhaustion (NOTIFY) |
+| `SUPERVISORY` | 300 s | Reject, confirmation, forbidden-reject, safe-stop, budget exhaustion, audit failure (BLOCKING); flagged, breaker change, budget low (NOTIFY) |
+| `MANDATORY` | 120 s | Everything except silent approvals (BLOCKING) |
+
+Use `HumanReviewTriggers.from_profile(HumanReviewProfile.SUPERVISORY)` as the recommended starting point for production deployments.
+
+### Decision types
+
+| Decision | Outcome |
+|----------|---------|
+| `APPROVE` | TOCTOU re-enforces the original vector against current geometry; `EXECUTED` if still feasible, `DENIED` if geometry has tightened. |
+| `DENY` | `DENIED` immediately; optional `guidance` dict returned as advisory bounds for next attempt. |
+| `MODIFY` | Reviewer supplies a replacement vector; re-enforced and executed if feasible, denied otherwise. |
+| `ESCALATE` | Re-submitted to gateway with incremented `escalation_depth`; ceiling exceeded → `DENIED`. |
+| `DEFER` | Timeout extended once by one full review window; second deferral → `DENIED`. |
+
+Unauthenticated decisions (`HumanDecision.authenticated is False`) are rejected immediately.
+
+### TOCTOU protection
+
+After human approval, `SupervisedGovernor` re-enforces the original enforced vector against the **current** backend geometry (not the geometry at the time of original enforcement).  This protects against time-of-check/time-of-use races if the policy has been updated or another step has consumed budget between the original enforcement and the human decision.
+
+### Audit chain
+
+All HITL events (human decisions and review expirations) are appended to an internal SHA-256 hash-linked audit chain, separate from the V5 kernel's chain.  Access via `SupervisedGovernor.hitl_audit_records`.
+
+### Minimal usage example
+
+```python
+from numerail_ext.survivability import (
+    SupervisedGovernor, HumanReviewTriggers, HumanReviewProfile,
+    LocalApprovalGateway,
+)
+from numerail_ext.survivability.governor import StateTransitionGovernor
+from numerail.protocols import HumanDecisionAction, HumanDecision, ReviewOutcome
+
+gateway = LocalApprovalGateway()
+gateway.set_auto_approve()  # for testing; use a real gateway in production
+
+triggers = HumanReviewTriggers.from_profile(HumanReviewProfile.SUPERVISORY)
+sg = SupervisedGovernor(governor=inner_governor, gateway=gateway, triggers=triggers)
+
+result = sg.step(request=workload_request, snapshot=telemetry_snapshot)
+
+if result.outcome == ReviewOutcome.PENDING_REVIEW:
+    review_id = sg.get_pending_ids()[0]
+    # ... wait for reviewer ...
+    final = sg.resolve_pending(review_id)
+elif result.outcome == ReviewOutcome.EXECUTED:
+    pass  # proceed with execution using result.enforcement_output.grant
+```
+
+---
+

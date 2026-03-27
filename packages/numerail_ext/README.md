@@ -25,6 +25,8 @@ pip install -e .              # this package
 
 **Policy contract** — Content-addressable, chain-linked, tamper-detected policy interchange. SHA-256 digests, append-only version chains, portable verification using only Python's stdlib.
 
+**Human-in-the-loop supervision** — `SupervisedGovernor` wraps the inner governor with a HITL gate. Configurable `HumanReviewTriggers` (three presets: ADVISORY, SUPERVISORY, MANDATORY) route enforcement events to an `ApprovalGateway`. BLOCKING triggers pause execution until a reviewer decides (APPROVE / DENY / MODIFY / ESCALATE / DEFER); timeout is fail-closed. TOCTOU re-enforcement re-checks the approved vector against current geometry before granting execution. All HITL events are SHA-256 audit-chained.
+
 ## Quickstart
 
 ```python
@@ -48,8 +50,9 @@ assert contract.verify_digest()
 ## Tests
 
 ```bash
-pytest tests/ -v                      # 217 tests (87 breaker + 120 contract + 10 integration)
-pytest tests/test_integration.py -v  # integration only — full governor lifecycle
+pytest tests/ -v                           # 306 tests total
+pytest tests/test_hitl_supervised.py -v   # 44 SupervisedGovernor tests
+pytest tests/test_integration.py -v       # integration only — full governor lifecycle
 ```
 
 ## Requires
