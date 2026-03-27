@@ -201,6 +201,32 @@ Provides the enforcement experience buffer, reward shaping (conservative/permiss
 
 ---
 
+## Reinforcement Learning from Enforcement (Conceptual)
+
+> **Status: Conceptual infrastructure. The experience buffer, reward shaping, and training adapters are implemented and tested (56 tests passing). The training loop itself — connecting enforcement feedback to actual LLM weight updates — has not been tested against a live model. The components below provide the data pipeline. The model training integration is left to the deployer.**
+
+Every Numerail enforcement decision contains a complete training signal. When the engine returns APPROVE, the model proposed something feasible — positive reinforcement. When it returns PROJECT, the engine corrected the proposal to the nearest feasible point — a supervised learning target showing exactly what the model should have proposed. When it returns REJECT, the proposal was infeasible and could not be corrected — negative reinforcement.
+
+This is a stronger alignment signal than standard RLHF for three reasons. The reward is deterministic (the vector satisfies the constraints or it does not — no labeler disagreement). The correction is constructive (PROJECT tells the model the right answer, not just that it was wrong). And the reward is grounded in the actual constraint geometry that will be enforced at inference time (no reward model to overfit).
+
+`numerail-learn` provides the infrastructure to collect and shape these signals:
+
+**Experience buffer** — captures the full context of every enforcement decision: conversation history, tool call, proposed vector, enforcement result, corrected vector, constraint violations, breaker mode, budget state, and computed reward. Thread-safe, fixed-size circular buffer with JSON export/import.
+
+**Reward shaping** — computes training rewards from enforcement outputs with three presets. *Conservative* (high penalty for violations, trains models to stay well within bounds), *permissive* (small penalties, trains models to use available authority efficiently), and *strict* (maximum penalty for any non-APPROVE). Per-dimension feedback identifies which fields the model consistently misjudges.
+
+**Training adapters** — convert enforcement experiences into the specific formats required by LLM training frameworks. *SFT* (supervised fine-tuning on PROJECT corrections — the model learns "you proposed X, you should have proposed Y"), *DPO* (direct preference optimization on APPROVE vs REJECT pairs — the model learns which outputs are preferred), and *PPO* (proximal policy optimization with shaped rewards — compatible with TRL).
+
+**Orchestrator** — coordinates the collect-and-export cycle with approval rate tracking, dimension violation analysis, and improvement reporting over training rounds.
+
+**Boundary-seeking mitigation** — training on projected corrections without adjustment teaches the model to operate at the edge of its authority with zero margin. Two mechanisms address this: SFT retraction pulls each supervision target away from the constraint boundary toward the feasible interior (guaranteed feasible by convexity), and an optional margin bonus rewards proposals that maintain distance from the boundary. The tradeoff between authority utilization and safety margin is controlled by the deployer via `retraction_factor` and `margin_bonus_scale`.
+
+The key metric is **approval rate over time**. A model that starts at 30% APPROVE (most proposals need correction) and reaches 90% after training has internalized the constraint geometry. The enforcement boundary remains in place regardless — training makes the model better at proposing feasible actions, enforcement ensures the boundary holds even when training fails. They are complementary, not redundant.
+
+This is the relationship between control and alignment: the enforcement guarantee is the floor, alignment is the optimization above it. The same system that prevents harm (enforcement) also generates the signal that reduces the probability of harm (training feedback). Neither replaces the other.
+
+---
+
 ## Quickstart
 
 **Install core:**
@@ -257,6 +283,9 @@ cd packages/numerail_ext && pytest tests/test_integration.py -v
 
 # Full stack — hello world smoke test (14 steps, all theorems exercised)
 python packages/numerail/examples/hello_world.py
+
+# Learn — full test suite (56 tests)
+cd packages/numerail_learn && pytest tests/ -v
 ```
 
 ---
