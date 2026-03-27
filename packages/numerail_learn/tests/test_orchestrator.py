@@ -237,3 +237,70 @@ def test_save_load_state():
         assert len(orch2._buffer) == 5
         assert orch2._episode_count == 1
         assert len(orch2.approval_rate_history) == 1
+
+
+# ---------------------------------------------------------------------------
+# Retraction + boundary proximity tests
+# ---------------------------------------------------------------------------
+
+
+def test_export_sft_with_retraction():
+    """export_sft_data applies retraction using the most recent APPROVE as reference."""
+    buf = EnforcementExperienceBuffer(max_size=500)
+    gov = _make_governor()
+    orch = EnforcementRLOrchestrator(
+        governor=gov, buffer=buf, reward_shaper=conservative_shaper(),
+        schema_fields=["gpu_seconds", "api_calls"],
+        budget_initial={"gpu_shift": 3600.0},
+        retraction_factor=0.2,
+    )
+
+    # Record 2 approves then 2 projects
+    for _ in range(2):
+        orch.record_step(_ctx(), _tc(), _make_step("approve"), _pv())
+    for _ in range(2):
+        orch.record_step(_ctx(), _tc(), _make_step("project"), _pv())
+
+    sft = orch.export_sft_data()
+    assert len(sft) == 2
+    # With an APPROVE in buffer, retraction should be applied
+    for ex in sft:
+        assert ex["retraction_applied"] is True
+        assert ex["retraction_factor"] == pytest.approx(0.2)
+
+
+def test_boundary_proximity_report():
+    """boundary_proximity_report flags dimensions where proposals are near the cap."""
+    buf = EnforcementExperienceBuffer(max_size=500)
+    gov = _make_governor()
+    orch = EnforcementRLOrchestrator(
+        governor=gov, buffer=buf, reward_shaper=conservative_shaper(),
+        schema_fields=["gpu_seconds", "api_calls"],
+        budget_initial={"gpu_shift": 3600.0},
+    )
+
+    # Record APPROVE steps where proposed ≈ enforced (≈ at the cap)
+    # gpu_seconds: proposed=9.5, enforced=10.0 → fraction 95% → boundary-seeking
+    # api_calls:   proposed=2.0, enforced=10.0 → fraction 20% → not boundary-seeking
+    import dataclasses
+    for _ in range(5):
+        step = _make_step("approve")
+        # Override numerail_result enforced values to simulate caps
+        step.numerail_result["enforced_values"] = {"gpu_seconds": 10.0, "api_calls": 10.0}
+        pv = np.array([9.5, 2.0], dtype=np.float64)
+        ev = np.array([10.0, 10.0], dtype=np.float64)
+        orch.record_step(_ctx(), _tc(), step, pv)
+        # Patch enforced_vector in the buffer so boundary_proximity_report can read it
+        with buf._lock:
+            for i in range(len(buf._buffer)):
+                if buf._buffer[i].result == "approve":
+                    buf._buffer[i] = dataclasses.replace(buf._buffer[i], enforced_vector=ev)
+
+    report = orch.boundary_proximity_report()
+    assert "mean_cap_fraction" in report
+    assert "boundary_seeking_dimensions" in report
+    assert "recommendation" in report
+    # gpu_seconds at 95% → boundary-seeking
+    assert "gpu_seconds" in report["boundary_seeking_dimensions"]
+    # api_calls at 20% → not boundary-seeking
+    assert "api_calls" not in report["boundary_seeking_dimensions"]

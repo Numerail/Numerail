@@ -82,9 +82,31 @@ print(f"Most violated: {dim_report['most_violated']}")
 
 ## Reward Presets
 
-- `conservative_shaper()`: High penalties, trains models to stay well within bounds
-- `permissive_shaper()`: Small penalties, trains models to use available authority efficiently
-- `strict_shaper()`: Maximum penalty for any non-APPROVE
+- `conservative_shaper()`: High penalties, trains models to stay well within bounds. Margin bonus enabled (0.2).
+- `permissive_shaper()`: Small penalties, trains models to use available authority efficiently. Margin bonus enabled (0.05).
+- `strict_shaper()`: Maximum penalty for any non-APPROVE. Margin bonus enabled (0.15).
+
+## Boundary-Seeking Behavior
+
+When the engine projects an infeasible vector to the nearest feasible point, the projected point sits on the boundary of the feasible region. Training a model on boundary points as supervision targets teaches the model to operate at the edge of its authority — maximally aggressive within the rules, with zero safety margin.
+
+This is addressed by two mechanisms:
+
+**SFT retraction.** The `to_sft_examples()` function accepts a `retraction_factor` (default 0.1) that pulls each supervision target away from the boundary toward a known interior point (the most recent APPROVE vector). The retracted target is guaranteed feasible by convexity — any point on the line segment between two feasible points is feasible in a convex region. A `retraction_factor` of 0.1 means the target is 10% of the way from the boundary point toward the interior reference. Higher values produce more conservative targets.
+
+**Margin bonus.** The reward shaper's `margin_bonus_scale` parameter (default 0.0, opt-in) rewards APPROVE proposals that have higher minimum slack across all constraints — proposals that are further from the boundary. This gives the model a gradient toward the interior during PPO training. The `conservative_shaper()` preset enables this at 0.2.
+
+The tradeoff is explicit: a `retraction_factor` of 0.0 trains for maximum authority utilization (zero margin). A factor of 0.3 trains for robust operation with 30% margin. The enforcement guarantee holds regardless — the boundary is still there. Retraction only affects what the model aims for inside the boundary.
+
+```python
+# Detect boundary-seeking in a trained model
+report = orchestrator.boundary_proximity_report()
+print(report["boundary_seeking_dimensions"])   # dims proposed near cap
+print(report["recommendation"])
+
+# Export SFT data with retraction
+sft_examples = orchestrator.export_sft_data()  # retraction_factor=0.1 by default
+```
 
 ## The Guarantee Still Holds
 

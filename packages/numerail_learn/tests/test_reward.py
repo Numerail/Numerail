@@ -165,3 +165,79 @@ def test_strict_shaper():
     # Project is heavily penalised
     r_project = s.compute_reward("project", 0.0, [])
     assert r_project <= -1.0
+
+
+# ---------------------------------------------------------------------------
+# Margin bonus tests
+# ---------------------------------------------------------------------------
+
+
+class _BoxRegion:
+    """Simple 2D box [0, cap_x] x [0, cap_y] for testing.
+
+    evaluate_all returns per-constraint violation magnitudes.
+    For a box constraint x_i <= cap_i: violation = x_i - cap_i.
+    Satisfied when x_i <= cap_i  →  evaluate = x_i - cap_i <= 0.
+    Also has lower-bound constraints 0 <= x_i: violation = -x_i.
+    """
+
+    def __init__(self, cap_x: float, cap_y: float):
+        self.cap_x = cap_x
+        self.cap_y = cap_y
+
+    def evaluate_all(self, x: "np.ndarray") -> "np.ndarray":
+        import numpy as np
+        evals = np.array([
+            x[0] - self.cap_x,   # upper bound dim 0: slack = cap_x - x[0]
+            x[1] - self.cap_y,   # upper bound dim 1: slack = cap_y - x[1]
+            -x[0],               # lower bound dim 0
+            -x[1],               # lower bound dim 1
+        ], dtype=np.float64)
+        return evals
+
+
+def test_margin_bonus_with_region():
+    """Center of box → high slack → margin_component > 0."""
+    s = EnforcementRewardShaper(margin_bonus_scale=0.2)
+    region = _BoxRegion(10.0, 10.0)
+    pv = np.array([5.0, 5.0], dtype=np.float64)
+    d = s.compute_detailed_reward("approve", 0.0, [],
+                                  proposed_vector=pv, region=region)
+    assert d["margin_component"] > 0.0
+
+
+def test_margin_bonus_boundary_point():
+    """Near-boundary point → smaller margin_component than center."""
+    s = EnforcementRewardShaper(margin_bonus_scale=0.2)
+    region = _BoxRegion(10.0, 10.0)
+    center = np.array([5.0, 5.0], dtype=np.float64)
+    boundary = np.array([9.9, 9.9], dtype=np.float64)
+    d_center   = s.compute_detailed_reward("approve", 0.0, [],
+                                           proposed_vector=center, region=region)
+    d_boundary = s.compute_detailed_reward("approve", 0.0, [],
+                                           proposed_vector=boundary, region=region)
+    assert d_center["margin_component"] > d_boundary["margin_component"]
+
+
+def test_margin_bonus_zero_when_no_region():
+    """No region provided → margin_component == 0.0."""
+    s = EnforcementRewardShaper(margin_bonus_scale=0.2)
+    pv = np.array([5.0, 5.0], dtype=np.float64)
+    d = s.compute_detailed_reward("approve", 0.0, [],
+                                  proposed_vector=pv, region=None)
+    assert d["margin_component"] == 0.0
+
+
+def test_margin_bonus_zero_on_project():
+    """result='project' → margin_component == 0.0 even with region."""
+    s = EnforcementRewardShaper(margin_bonus_scale=0.2)
+    region = _BoxRegion(10.0, 10.0)
+    pv = np.array([5.0, 5.0], dtype=np.float64)
+    d = s.compute_detailed_reward("project", 1.0, [],
+                                  proposed_vector=pv, region=region)
+    assert d["margin_component"] == 0.0
+
+
+def test_conservative_shaper_has_margin_bonus():
+    s = conservative_shaper()
+    assert s.margin_bonus_scale == 0.2

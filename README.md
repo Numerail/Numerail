@@ -116,7 +116,7 @@ Both prove the central guarantee (enforcement soundness), fail-closed rejection,
 
 **Python proof checker:** 3,732 structural and property checks confirming the implementation matches the formal model. Covers all return points, guard conditions, function signatures, constraint evaluation formulas, and randomized property checks.
 
-**Test suite:** 46 certification tests (one per theorem with structural, adversarial, and stress coverage), 99 mathematical guarantee analysis tests (one per proof claim), and 571 total tests across both packages exercising every code path.
+**Test suite:** 46 certification tests (one per theorem with structural, adversarial, and stress coverage), 99 mathematical guarantee analysis tests (one per proof claim), and 627 total tests across all three packages exercising every code path.
 
 This level of formal verification is, to the best of the author's knowledge, unique among open-source AI safety systems.
 
@@ -191,8 +191,11 @@ packages/numerail_learn/
 | Python | ≥ 3.10 |
 | Dependencies | numerail ≥ 5.0.0, numerail-ext ≥ 0.4.0, numpy ≥ 1.21 |
 | License | MIT |
+| Tests | 56 passing |
 
 Provides the enforcement experience buffer, reward shaping (conservative/permissive/strict presets), training data adapters (SFT, DPO, PPO), and the orchestrator for tracking model improvement over time.
+
+**Boundary-seeking mitigation** — training on projected corrections without adjustment teaches the model to operate at the edge of its authority with zero margin. Two mechanisms address this: SFT retraction pulls each supervision target away from the constraint boundary toward the feasible interior (guaranteed feasible by convexity), and an optional margin bonus rewards proposals that maintain distance from the boundary. The tradeoff between authority utilization and safety margin is controlled by the deployer via `retraction_factor` and `margin_bonus_scale`.
 
 → [Learn README](packages/numerail_learn/README.md)
 
@@ -312,7 +315,7 @@ packages/
       reward.py                ← EnforcementRewardShaper + presets
       adapter.py               ← SFT, DPO, PPO training adapters
       orchestrator.py          ← EnforcementRLOrchestrator
-    tests/                     ← 43 tests
+    tests/                     ← 56 tests
 .github/workflows/
   ci.yml                       ← 3 jobs: core, ext, integration
   release.yml                  ← 4 jobs: verify → publish (PyPI trusted publishing)
@@ -340,6 +343,16 @@ Four principles govern the design:
 **The kernel is unchanged by the layers above it.** The survivability extension controls which policy the kernel enforces against. It cannot modify how enforcement works. The guarantee proved for the kernel propagates unchanged to every layer built on top of it. The HITL layer wraps the governor without modifying it. The governor wraps the kernel without modifying it. The proof chain is unbroken from the mathematical theorem to the production deployment.
 
 **The default is denial.** Every permission must be explicitly granted through constraint geometry. An empty policy rejects everything. The system is safe by construction, not by assumption.
+
+---
+
+## A Note on Non-Convexity
+
+Numerail enforces convex constraints. This covers the vast majority of real-world governance requirements: caps, budgets, joint limits, rate limits, ratio constraints, energy bounds, and coupled stability constraints are all naturally convex. Most regulation is expressed as "stay below this ceiling" or "stay within this combined envelope" — both convex by construction.
+
+Non-convex requirements do exist — "do A or B but not both," "operate below 50 or above 100 but not between," exclusion zones, and discrete authority levels. These are the exception, not the norm. When they arise, they can be decomposed into a union of convex regions and enforced by a composition layer above the kernel: enforce the proposed vector against each convex component independently, then select the result with the smallest distance. The enforcement guarantee holds for each component because each call to `enforce()` operates on a convex region. The kernel is unchanged.
+
+This decomposition is not built into the current repository. It is a future capability that the architecture supports without modification to the kernel, the proofs, or the extension. The foundation is convex because convexity is what makes the guarantee provable — projection is unique, the solver chain converges, and the post-check is complete. Non-convexity is handled by composition, not by weakening the foundation.
 
 ---
 

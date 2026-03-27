@@ -79,11 +79,11 @@ numerail-repo/                       ← repository root (tagged v5.0.0 / ext v0
         reward.py                    ← EnforcementRewardShaper + conservative/permissive/strict presets
         adapter.py                   ← to_sft_examples, to_dpo_pairs, to_ppo_episodes, to_analytics_dataframe
         orchestrator.py              ← EnforcementRLOrchestrator (collect-train-evaluate cycle, improvement tracking)
-      tests/                         ← 40 tests
+      tests/                         ← 56 tests
         test_experience.py           ← 13 buffer tests (record, eviction, sampling, pairs, thread safety, JSON)
-        test_reward.py               ← 12 reward tests (components, presets, dimension feedback)
-        test_adapter.py              ← 8 adapter tests (SFT, DPO, PPO, analytics, corrected_tool_call)
-        test_orchestrator.py         ← 10 orchestrator tests (record_step, episode boundary, export, reports, save/load)
+        test_reward.py               ← 17 reward tests (components, presets, dimension feedback, margin bonus)
+        test_adapter.py              ← 14 adapter tests (SFT, DPO, PPO, analytics, corrected_tool_call, retraction)
+        test_orchestrator.py         ← 12 orchestrator tests (record_step, episode boundary, export, retraction, boundary proximity, save/load)
     numerail_ext/                    ← survivability extension (v0.4.0), requires numerail ≥ 5.0.0
       src/numerail_ext/survivability/
         breaker.py                   ← BreakerStateMachine
@@ -219,6 +219,9 @@ Every permission must be explicitly granted through constraint geometry. Do not 
 
 ### 7. The emit-path assert fires before output construction
 The feasibility re-check in `_out()` fires before the `EnforcementOutput` object is constructed. Never reorder this so that a partially-constructed output could escape if the check raises.
+
+### 8. The kernel enforces convex constraints only
+Non-convex requirements are handled by decomposition into unions of convex regions above the kernel — see "A Note on Non-Convexity" in README.md. The kernel, proofs, and extension do not change for non-convex support. Convexity is what makes the guarantee provable: projection is unique, the solver chain converges, and the post-check is complete.
 
 ## Proof Structure (for reference when editing engine.py)
 

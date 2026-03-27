@@ -74,6 +74,12 @@ class EnforcementRLOrchestrator:
         Field names in schema order, used for dimension feedback.
     budget_initial : Optional[Dict[str, float]]
         Initial budget values, used for budget bonus computation.
+    region : Optional[Any]
+        A ``FeasibleRegion`` (or any object with ``evaluate_all()``) used for
+        margin bonus computation during reward shaping.
+    retraction_factor : float
+        Fraction [0, 1] by which SFT targets are pulled from the boundary
+        toward the most recent feasible interior point.  Default 0.1.
     """
 
     def __init__(
@@ -83,12 +89,16 @@ class EnforcementRLOrchestrator:
         reward_shaper: EnforcementRewardShaper,
         schema_fields: Optional[List[str]] = None,
         budget_initial: Optional[Dict[str, float]] = None,
+        region: Optional[Any] = None,
+        retraction_factor: float = 0.1,
     ) -> None:
-        self._governor     = governor
-        self._buffer       = buffer
-        self._shaper       = reward_shaper
-        self._schema_fields = schema_fields
-        self._budget_initial = budget_initial
+        self._governor        = governor
+        self._buffer          = buffer
+        self._shaper          = reward_shaper
+        self._schema_fields   = schema_fields
+        self._budget_initial  = budget_initial
+        self._region          = region
+        self._retraction_factor = retraction_factor
 
         self._approval_rate_history: List[Tuple[float, float]] = []
         self._mean_reward_history:   List[Tuple[float, float]] = []
@@ -166,6 +176,7 @@ class EnforcementRLOrchestrator:
             exp,
             schema_fields=self._schema_fields,
             budget_initial=self._budget_initial,
+            region=self._region,
         )
 
         # Swap the experience in the buffer with the shaped version
@@ -228,8 +239,29 @@ class EnforcementRLOrchestrator:
     # ── Export ─────────────────────────────────────────────────────────────
 
     def export_sft_data(self) -> List[Dict[str, Any]]:
-        """Export PROJECT experiences as SFT training examples."""
-        return adapter.to_sft_examples(self._buffer.get_project_experiences())
+        """Export PROJECT experiences as SFT training examples.
+
+        Automatically finds the most recent APPROVE as the retraction reference.
+        Logs retraction statistics.
+        """
+        import logging
+        log = logging.getLogger(__name__)
+
+        all_exps = self._buffer.get_all()
+        reference_vector = adapter.find_interior_reference(all_exps)
+        examples = adapter.to_sft_examples(
+            self._buffer.get_project_experiences(),
+            retraction_factor=self._retraction_factor,
+            reference_vector=reference_vector,
+            schema_fields=self._schema_fields,
+        )
+        retracted = sum(1 for ex in examples if ex.get("retraction_applied"))
+        not_retracted = len(examples) - retracted
+        log.info(
+            "export_sft_data: %d examples (%d retracted, %d not retracted)",
+            len(examples), retracted, not_retracted,
+        )
+        return examples
 
     def export_dpo_data(self, max_pairs: int = 1000) -> List[Dict[str, Any]]:
         """Export APPROVE/REJECT pairs as DPO training examples."""
@@ -289,6 +321,70 @@ class EnforcementRLOrchestrator:
             "mean_overshoot":      mean_overshoot,
             "most_violated":       most_violated,
             "recommendation":      recommendation,
+        }
+
+    def boundary_proximity_report(self) -> Dict[str, Any]:
+        """Detect boundary-seeking behavior in the trained model.
+
+        For APPROVE experiences that have dimension_feedback populated, computes
+        the mean proposed value per dimension as a fraction of the enforced
+        (cap) value.  Dimensions where the model consistently proposes near the
+        cap (> 80% of cap) are flagged as boundary-seeking.
+
+        Returns
+        -------
+        dict with:
+            ``mean_cap_fraction`` — {dim: mean fraction of cap},
+            ``boundary_seeking_dimensions`` — list of dims with mean > 0.80,
+            ``recommendation`` — human-readable summary.
+        """
+        approve_exps = [e for e in self._buffer.get_all() if e.result == "approve"]
+
+        # Collect per-dimension (proposed, cap) pairs from dimension_feedback.
+        # dimension_feedback for APPROVE is empty by default (no delta).
+        # We instead use proposed_vector + enforced_vector directly.
+        dim_fractions: Dict[str, List[float]] = {}
+        fields = self._schema_fields or []
+
+        for exp in approve_exps:
+            if (exp.proposed_vector is None
+                    or exp.enforced_vector is None
+                    or len(fields) == 0):
+                continue
+            pv = np.asarray(exp.proposed_vector, dtype=np.float64)
+            ev = np.asarray(exp.enforced_vector, dtype=np.float64)
+            n = min(len(pv), len(ev), len(fields))
+            for i in range(n):
+                cap = float(ev[i])
+                if cap > 1e-9:
+                    fraction = float(pv[i]) / cap
+                    dim_fractions.setdefault(fields[i], []).append(fraction)
+
+        mean_cap_fraction = {
+            dim: float(np.mean(vals))
+            for dim, vals in dim_fractions.items()
+        }
+
+        boundary_seeking = [
+            dim for dim, frac in mean_cap_fraction.items() if frac > 0.80
+        ]
+
+        if boundary_seeking:
+            recommendation = (
+                "Boundary-seeking detected in: "
+                + ", ".join(
+                    f"{d} ({mean_cap_fraction[d]:.0%} of cap)"
+                    for d in boundary_seeking
+                )
+                + ". Consider increasing retraction_factor or margin_bonus_scale."
+            )
+        else:
+            recommendation = "No boundary-seeking behavior detected."
+
+        return {
+            "mean_cap_fraction":            mean_cap_fraction,
+            "boundary_seeking_dimensions":  boundary_seeking,
+            "recommendation":               recommendation,
         }
 
     def improvement_report(self) -> Dict[str, Any]:

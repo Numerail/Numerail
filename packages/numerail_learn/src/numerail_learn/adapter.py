@@ -1,7 +1,7 @@
 """Training data adapters.
 
 Converts EnforcementExperience instances into training formats for LLMs:
-- SFT  (Supervised Fine-Tuning)  — from PROJECT corrections
+- SFT  (Supervised Fine-Tuning)  — from PROJECT corrections, with optional retraction
 - DPO  (Direct Preference Opt.)  — from APPROVE vs REJECT pairs
 - PPO  (Proximal Policy Opt.)    — shaped rewards for all experiences
 - Analytics export               — columnar dict for pandas DataFrames
@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import json
 from typing import Any, Dict, List, Optional
+
+import numpy as np
 
 from numerail_learn.experience import EnforcementExperience
 
@@ -55,12 +57,34 @@ def _context_to_string(messages: List[Dict[str, Any]]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# SFT helpers
+# ---------------------------------------------------------------------------
+
+
+def find_interior_reference(
+    experiences: List[EnforcementExperience],
+) -> Optional[np.ndarray]:
+    """Find the most recent APPROVE experience's proposed_vector.
+
+    This is a known-feasible interior point suitable for SFT retraction.
+    Returns None if no APPROVE experiences exist.
+    """
+    for exp in reversed(experiences):
+        if exp.result == "approve" and exp.proposed_vector is not None:
+            return np.asarray(exp.proposed_vector, dtype=np.float64).copy()
+    return None
+
+
+# ---------------------------------------------------------------------------
 # SFT adapter
 # ---------------------------------------------------------------------------
 
 
 def to_sft_examples(
     experiences: List[EnforcementExperience],
+    retraction_factor: float = 0.1,
+    reference_vector: Optional[np.ndarray] = None,
+    schema_fields: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
     """Convert PROJECT experiences into supervised fine-tuning examples.
 
@@ -70,9 +94,29 @@ def to_sft_examples(
     - ``original_tool_call``: what the model actually proposed.
     - ``enforcement_distance``: how far off the model was.
     - ``corrected_fields``: field names that were changed.
+    - ``retraction_applied``: whether SFT retraction was applied.
+    - ``retraction_factor``: the retraction factor used.
 
     APPROVE experiences are already correct (no correction target needed).
     REJECT experiences have no correction target. Both are skipped.
+
+    Parameters
+    ----------
+    experiences :
+        List of enforcement experiences to convert.
+    retraction_factor :
+        Fraction [0, 1] by which to pull the supervision target from the
+        boundary (enforced_vector) toward the interior (reference_vector).
+        ``retracted = enforced + factor * (reference - enforced)``.
+        Default 0.1.  Set to 0.0 to disable retraction.
+    reference_vector :
+        A known-feasible interior point to retract toward.  Typically the
+        most recent APPROVE proposed_vector.  Use ``find_interior_reference``
+        to obtain one from the buffer.  If None, retraction is skipped.
+    schema_fields :
+        Field names in schema order.  When provided and retraction is active,
+        the retracted values are mapped back to tool call arguments by
+        position.  Falls back to original field order when None.
     """
     examples: List[Dict[str, Any]] = []
 
@@ -80,19 +124,36 @@ def to_sft_examples(
         if exp.result != "project" or exp.enforced_vector is None:
             continue
 
-        # Build enforced_values dict from tool_call fields + enforced vector
+        ev = np.asarray(exp.enforced_vector, dtype=np.float64)
+
+        # Determine target vector (with or without retraction)
+        retraction_applied = False
+        target_vector = ev.copy()
+
+        if (retraction_factor > 0.0
+                and reference_vector is not None
+                and len(reference_vector) == len(ev)):
+            ref = np.asarray(reference_vector, dtype=np.float64)
+            target_vector = ev + retraction_factor * (ref - ev)
+            retraction_applied = True
+
+        # Map target vector → enforced_values dict
         original_args: Dict[str, Any] = exp.tool_call.get("arguments", {})
-        field_names = list(original_args.keys())
-        ev = exp.enforced_vector
+        if schema_fields is not None:
+            field_names = schema_fields
+        else:
+            field_names = list(original_args.keys())
 
         enforced_values: Dict[str, float] = {}
         for i, fname in enumerate(field_names):
-            if i < len(ev):
-                enforced_values[fname] = float(ev[i])
+            if i < len(target_vector) and fname in original_args:
+                enforced_values[fname] = float(target_vector[i])
+            elif i < len(target_vector):
+                enforced_values[fname] = float(target_vector[i])
 
         corrected_tc = corrected_tool_call(exp.tool_call, enforced_values)
 
-        # Identify changed fields
+        # Identify changed fields (relative to original proposal)
         corrected_fields = [
             k for k, v in enforced_values.items()
             if abs(float(original_args.get(k, v)) - v) > 1e-9
@@ -104,10 +165,12 @@ def to_sft_examples(
         ]
 
         examples.append({
-            "messages":            messages,
-            "original_tool_call":  exp.tool_call,
+            "messages":             messages,
+            "original_tool_call":   exp.tool_call,
             "enforcement_distance": exp.distance,
-            "corrected_fields":    corrected_fields,
+            "corrected_fields":     corrected_fields,
+            "retraction_applied":   retraction_applied,
+            "retraction_factor":    retraction_factor if retraction_applied else 0.0,
         })
 
     return examples

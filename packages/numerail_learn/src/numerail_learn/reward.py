@@ -1,9 +1,9 @@
 """Reward shaping from Numerail enforcement decisions.
 
 Three preset configurations are provided:
-- ``conservative_shaper()``: high penalties, trains caution
+- ``conservative_shaper()``: high penalties, trains caution, enables margin bonus
 - ``permissive_shaper()``:  low penalties, rewards boundary exploration
-- ``strict_shaper()``:      maximum penalty for any non-APPROVE
+- ``strict_shaper()``:      maximum penalty for any non-APPROVE, enables margin bonus
 """
 
 from __future__ import annotations
@@ -26,10 +26,14 @@ class EnforcementRewardShaper:
       (0 for APPROVE).
     - **Violation component**: ``-violation_scale * sum(magnitudes)``.
 
-    Optional bonus:
+    Optional bonuses:
 
     - **Budget efficiency**: ``+budget_bonus_scale * mean_remaining_fraction``
       rewards conserving budget.
+    - **Margin bonus**: ``+margin_bonus_scale * min_slack_normalized``
+      rewards APPROVE proposals that are further from every constraint boundary.
+      Only active when ``margin_bonus_scale > 0`` and a ``region`` is passed to
+      ``compute_detailed_reward()``.
 
     Parameters
     ----------
@@ -45,6 +49,9 @@ class EnforcementRewardShaper:
         Penalty per unit of total violation magnitude.
     budget_bonus_scale :
         Bonus per unit of mean budget-remaining fraction.
+    margin_bonus_scale :
+        Bonus per unit of minimum slack across all constraints for APPROVE
+        decisions. Default 0.0 (off). Requires a ``region`` to be passed.
     """
 
     def __init__(
@@ -55,13 +62,15 @@ class EnforcementRewardShaper:
         distance_scale: float = 0.1,
         violation_scale: float = 0.5,
         budget_bonus_scale: float = 0.05,
+        margin_bonus_scale: float = 0.0,
     ) -> None:
-        self.approve_reward    = approve_reward
-        self.project_base      = project_base
-        self.reject_penalty    = reject_penalty
-        self.distance_scale    = distance_scale
-        self.violation_scale   = violation_scale
+        self.approve_reward     = approve_reward
+        self.project_base       = project_base
+        self.reject_penalty     = reject_penalty
+        self.distance_scale     = distance_scale
+        self.violation_scale    = violation_scale
         self.budget_bonus_scale = budget_bonus_scale
+        self.margin_bonus_scale = margin_bonus_scale
 
     # ── Core compute ───────────────────────────────────────────────────────
 
@@ -72,6 +81,7 @@ class EnforcementRewardShaper:
         violations: List[Tuple[str, float]],
         budget_remaining: Optional[Dict[str, float]] = None,
         budget_initial: Optional[Dict[str, float]] = None,
+        region: Optional[Any] = None,
     ) -> float:
         """Compute scalar reward from enforcement outcome."""
         return self.compute_detailed_reward(
@@ -80,6 +90,7 @@ class EnforcementRewardShaper:
             violations=violations,
             budget_remaining=budget_remaining,
             budget_initial=budget_initial,
+            region=region,
         )["total_reward"]
 
     def compute_detailed_reward(
@@ -92,6 +103,7 @@ class EnforcementRewardShaper:
         schema_fields: Optional[List[str]] = None,
         budget_remaining: Optional[Dict[str, float]] = None,
         budget_initial: Optional[Dict[str, float]] = None,
+        region: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Compute detailed reward breakdown.
 
@@ -99,7 +111,8 @@ class EnforcementRewardShaper:
         -------
         dict with keys:
             ``total_reward``, ``approval_component``, ``distance_component``,
-            ``violation_component``, ``budget_component``, ``dimension_feedback``.
+            ``violation_component``, ``budget_component``,
+            ``margin_component``, ``dimension_feedback``.
         """
         r = result.lower()
 
@@ -129,7 +142,30 @@ class EnforcementRewardShaper:
             if fractions:
                 budget_component = self.budget_bonus_scale * (sum(fractions) / len(fractions))
 
-        total_reward = approval_component + distance_component + violation_component + budget_component
+        # Margin bonus: only for APPROVE with region and scale > 0
+        margin_component = 0.0
+        if (r == "approve"
+                and self.margin_bonus_scale > 0
+                and region is not None
+                and proposed_vector is not None):
+            try:
+                eval_values = region.evaluate_all(np.asarray(proposed_vector, dtype=np.float64))
+                # evaluate returns violation magnitude: negative = satisfied, positive = violated.
+                # Slack for each constraint = -eval_value.
+                # min_slack = minimum slack = -max(eval_values).
+                min_slack = -float(np.max(eval_values))
+                min_slack_normalized = max(0.0, min_slack)
+                margin_component = self.margin_bonus_scale * min_slack_normalized
+            except Exception:
+                margin_component = 0.0
+
+        total_reward = (
+            approval_component
+            + distance_component
+            + violation_component
+            + budget_component
+            + margin_component
+        )
 
         # Dimension feedback: only for PROJECT with full vector info
         dimension_feedback: Dict[str, float] = {}
@@ -151,6 +187,7 @@ class EnforcementRewardShaper:
             "distance_component":  round(distance_component, 6),
             "violation_component": round(violation_component, 6),
             "budget_component":    round(budget_component, 6),
+            "margin_component":    round(margin_component, 6),
             "dimension_feedback":  dimension_feedback,
         }
 
@@ -161,6 +198,7 @@ class EnforcementRewardShaper:
         experience: EnforcementExperience,
         schema_fields: Optional[List[str]] = None,
         budget_initial: Optional[Dict[str, float]] = None,
+        region: Optional[Any] = None,
     ) -> EnforcementExperience:
         """Return a new experience with reward and dimension_feedback populated.
 
@@ -175,6 +213,7 @@ class EnforcementRewardShaper:
             schema_fields=schema_fields,
             budget_remaining=experience.budget_remaining if experience.budget_remaining else None,
             budget_initial=budget_initial,
+            region=region,
         )
 
         components = {
@@ -182,6 +221,7 @@ class EnforcementRewardShaper:
             "distance_component":  detail["distance_component"],
             "violation_component": detail["violation_component"],
             "budget_component":    detail["budget_component"],
+            "margin_component":    detail["margin_component"],
         }
 
         return EnforcementExperience(
@@ -213,7 +253,11 @@ class EnforcementRewardShaper:
 
 
 def conservative_shaper() -> EnforcementRewardShaper:
-    """High penalties — trains models to strongly avoid constraint boundaries."""
+    """High penalties — trains models to strongly avoid constraint boundaries.
+
+    Enables margin bonus (0.2) to reward proposals with slack from every
+    constraint, directly counteracting boundary-seeking behavior.
+    """
     return EnforcementRewardShaper(
         approve_reward=1.0,
         project_base=-0.2,
@@ -221,6 +265,7 @@ def conservative_shaper() -> EnforcementRewardShaper:
         distance_scale=0.2,
         violation_scale=1.0,
         budget_bonus_scale=0.1,
+        margin_bonus_scale=0.2,
     )
 
 
@@ -233,11 +278,15 @@ def permissive_shaper() -> EnforcementRewardShaper:
         distance_scale=0.05,
         violation_scale=0.2,
         budget_bonus_scale=0.02,
+        margin_bonus_scale=0.05,
     )
 
 
 def strict_shaper() -> EnforcementRewardShaper:
-    """Maximum penalty — trains models to always stay well within bounds."""
+    """Maximum penalty — trains models to always stay well within bounds.
+
+    Enables margin bonus (0.15) to reward interior proposals.
+    """
     return EnforcementRewardShaper(
         approve_reward=1.0,
         project_base=-1.0,
@@ -245,4 +294,5 @@ def strict_shaper() -> EnforcementRewardShaper:
         distance_scale=0.5,
         violation_scale=2.0,
         budget_bonus_scale=0.0,
+        margin_bonus_scale=0.15,
     )
