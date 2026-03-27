@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Numerail Live Demo</title>
+<style>
+  /* ── Reset & base ─────────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0a0a0f;
+    --surface:   #12121a;
+    --border:    #1e1e2e;
+    --muted:     #3a3a52;
+    --text:      #c8c8dc;
+    --text-dim:  #6868a0;
+    --accent:    #7c7cf8;
+    --green:     #4ade80;
+    --yellow:    #facc15;
+    --orange:    #fb923c;
+    --red:       #f87171;
+    --blue:      #60a5fa;
+    --font:      system-ui, ui-monospace, "Menlo", "Consolas", monospace;
+    --radius:    6px;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    line-height: 1.5;
+    overflow: hidden;
+  }
+
+  /* ── Fixed header ─────────────────────────────────────────────────────── */
+  #header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 48px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 16px;
+    z-index: 100;
+  }
+
+  #header .logo {
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+  }
+
+  #header .sep { flex: 1; }
+
+  #breaker-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    border: 1px solid transparent;
+    transition: all 0.3s;
+  }
+  #breaker-badge .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+
+  .breaker-CLOSED     { background: #0d2b1a; border-color: var(--green);  color: var(--green); }
+  .breaker-THROTTLED  { background: #2b2000; border-color: var(--yellow); color: var(--yellow); }
+  .breaker-HALF_OPEN  { background: #2b1800; border-color: var(--orange); color: var(--orange); }
+  .breaker-SAFE_STOP  { background: #2b1200; border-color: var(--orange); color: var(--orange); }
+  .breaker-OPEN       { background: #2b0000; border-color: var(--red);    color: var(--red); }
+
+  .dot-CLOSED     { background: var(--green); }
+  .dot-THROTTLED  { background: var(--yellow); }
+  .dot-HALF_OPEN  { background: var(--orange); }
+  .dot-SAFE_STOP  { background: var(--orange); }
+  .dot-OPEN       { background: var(--red); }
+
+  #phase-label {
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+  #phase-label span { color: var(--text); font-weight: 600; }
+
+  #conn-status {
+    font-size: 11px;
+    color: var(--text-dim);
+    display: flex; align-items: center; gap: 5px;
+  }
+  #conn-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+  #conn-dot.connected    { background: var(--green); }
+  #conn-dot.disconnected { background: var(--red); }
+
+  /* ── Main layout ──────────────────────────────────────────────────────── */
+  #main {
+    position: fixed;
+    top: 48px; left: 0; right: 0; bottom: 0;
+    display: grid;
+    grid-template-columns: 280px 1fr 320px;
+    grid-template-rows: 1fr;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  /* ── Panel base ───────────────────────────────────────────────────────── */
+  .panel {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel:last-child { border-right: none; }
+
+  .panel-header {
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 10px 14px;
+  }
+  .panel-body::-webkit-scrollbar { width: 4px; }
+  .panel-body::-webkit-scrollbar-track { background: transparent; }
+  .panel-body::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 4px; }
+
+  /* ── Left panel: budgets + telemetry + overload ──────────────────────── */
+  #left-panel { grid-column: 1; background: var(--bg); border-right: 1px solid var(--border); }
+
+  .section-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin: 14px 0 8px;
+  }
+  .section-title:first-child { margin-top: 0; }
+
+  /* Budget bars */
+  .budget-item { margin-bottom: 12px; }
+  .budget-label-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    font-size: 12px;
+  }
+  .budget-name { color: var(--text); }
+  .budget-vals { color: var(--text-dim); font-size: 11px; }
+  .budget-bar-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .budget-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease-out, background 0.3s;
+  }
+
+  /* Telemetry gauges */
+  .telem-item { margin-bottom: 10px; }
+  .telem-label-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 3px;
+    font-size: 11px;
+  }
+  .telem-name { color: var(--text-dim); }
+  .telem-val  { color: var(--text); font-weight: 600; }
+  .telem-bar-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .telem-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s ease-out, background 0.3s;
+  }
+
+  /* Overload score */
+  #overload-container { margin-top: 4px; }
+  #overload-score-big {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    transition: color 0.3s;
+    line-height: 1;
+    margin: 6px 0;
+  }
+  #overload-bar-track {
+    height: 10px;
+    background: var(--border);
+    border-radius: 5px;
+    overflow: hidden;
+    position: relative;
+  }
+  #overload-bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.5s ease-out, background 0.3s;
+  }
+  .overload-threshold-line {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    opacity: 0.6;
+  }
+  #threshold-trip  { background: var(--yellow); left: 50%; }
+  #threshold-safe  { background: var(--red);    left: 80%; }
+
+  /* ── Centre panel: feasible region canvas + feed ─────────────────────── */
+  #centre-panel {
+    grid-column: 2;
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  #canvas-container {
+    flex-shrink: 0;
+    padding: 10px 14px 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #canvas-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  #feasible-canvas {
+    display: block;
+    width: 100%;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: #07070e;
+  }
+
+  /* Feed */
+  #feed-header {
+    padding: 8px 14px 6px;
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  #feed-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 0;
+  }
+  #feed-body::-webkit-scrollbar { width: 4px; }
+  #feed-body::-webkit-scrollbar-track { background: transparent; }
+  #feed-body::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 4px; }
+
+  .feed-item {
+    display: grid;
+    grid-template-columns: 28px 62px 70px 1fr;
+    gap: 6px;
+    align-items: baseline;
+    padding: 4px 14px;
+    font-size: 11px;
+    border-bottom: 1px solid transparent;
+    transition: background 0.15s;
+  }
+  .feed-item:hover { background: var(--surface); }
+
+  .feed-step  { color: var(--text-dim); text-align: right; font-variant-numeric: tabular-nums; }
+  .feed-phase { color: var(--text-dim); }
+  .feed-decision {
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+  .decision-APPROVE { color: var(--green); }
+  .decision-PROJECT { color: var(--yellow); }
+  .decision-REJECT  { color: var(--red); }
+
+  .feed-hash { color: var(--muted); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ── Right panel: audit chain ─────────────────────────────────────────── */
+  #right-panel { grid-column: 3; background: var(--bg); }
+
+  .audit-item {
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    background: var(--surface);
+    border-radius: var(--radius);
+    border-left: 3px solid var(--muted);
+    font-size: 11px;
+  }
+  .audit-item.approve { border-left-color: var(--green); }
+  .audit-item.project { border-left-color: var(--yellow); }
+  .audit-item.reject  { border-left-color: var(--red); }
+
+  .audit-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .audit-id    { color: var(--accent); font-weight: 600; }
+  .audit-mode  { font-size: 10px; color: var(--text-dim); }
+  .audit-hash  { font-size: 10px; color: var(--muted); word-break: break-all; margin-top: 2px; }
+
+  /* ── Summary overlay ──────────────────────────────────────────────────── */
+  #summary-overlay {
+    display: none;
+    position: fixed;
+    top: 48px; left: 0; right: 0; bottom: 0;
+    background: rgba(10,10,15,0.92);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  #summary-overlay.visible { display: flex; }
+
+  #summary-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 28px 36px;
+    width: 420px;
+    max-width: 90vw;
+  }
+  #summary-box h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 18px;
+    color: var(--accent);
+  }
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .summary-row:last-of-type { border-bottom: none; }
+  .summary-row .label { color: var(--text-dim); }
+  .summary-row .value { font-weight: 600; }
+  #summary-restart {
+    margin-top: 20px;
+    width: 100%;
+    padding: 9px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  #summary-restart:hover { filter: brightness(1.15); }
+</style>
+</head>
+<body>
+
+<!-- ── Fixed header ──────────────────────────────────────────────────────── -->
+<div id="header">
+  <span class="logo">NUMERAIL</span>
+  <span style="color:var(--text-dim);font-size:11px;">live demo</span>
+  <span class="sep"></span>
+  <span id="phase-label">phase: <span id="phase-name">–</span></span>
+  <div id="breaker-badge" class="breaker-CLOSED">
+    <span class="dot dot-CLOSED" id="breaker-dot"></span>
+    <span id="breaker-text">CLOSED</span>
+  </div>
+  <div id="conn-status">
+    <span id="conn-dot"></span>
+    <span id="conn-label">connecting…</span>
+  </div>
+</div>
+
+<!-- ── Main layout ───────────────────────────────────────────────────────── -->
+<div id="main">
+
+  <!-- Left: budgets + telemetry + overload ── -->
+  <div class="panel" id="left-panel">
+    <div class="panel-header">System Status</div>
+    <div class="panel-body">
+
+      <div class="section-title">Budget Remaining</div>
+      <div id="budgets"></div>
+
+      <div class="section-title">Telemetry</div>
+      <div id="telemetry"></div>
+
+      <div class="section-title">Overload Score</div>
+      <div id="overload-container">
+        <div id="overload-score-big">0.000</div>
+        <div id="overload-bar-track">
+          <div id="overload-bar-fill" style="width:0%"></div>
+          <div class="overload-threshold-line" id="threshold-trip"></div>
+          <div class="overload-threshold-line" id="threshold-safe"></div>
+        </div>
+        <div style="margin-top:5px;font-size:10px;color:var(--text-dim);">
+          trip&nbsp;≥&nbsp;0.50 &nbsp;|&nbsp; safe-stop&nbsp;≥&nbsp;0.80
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Centre: canvas + feed ── -->
+  <div id="centre-panel">
+
+    <div id="canvas-container">
+      <div id="canvas-title">2D Feasible Region — GPU seconds × External API calls</div>
+      <canvas id="feasible-canvas" width="600" height="200"></canvas>
+    </div>
+
+    <div id="feed-header">Enforcement Feed</div>
+    <div id="feed-body"></div>
+
+  </div>
+
+  <!-- Right: audit chain ── -->
+  <div class="panel" id="right-panel">
+    <div class="panel-header">Audit Chain</div>
+    <div class="panel-body" id="audit-body"></div>
+  </div>
+
+</div>
+
+<!-- ── Summary overlay ───────────────────────────────────────────────────── -->
+<div id="summary-overlay">
+  <div id="summary-box">
+    <h2>Demo Complete</h2>
+    <div id="summary-rows"></div>
+    <button id="summary-restart" onclick="window.location.reload()">Restart Demo</button>
+  </div>
+</div>
+
+<script>
+/* ────────────────────────────────────────────────────────────────────────── */
+/* State                                                                       */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+const _budgetInitial = {
+  gpu_shift:          3600.0,
+  external_api_shift:  500.0,
+  mutation_shift:      100.0,
+};
+
+let _step     = 0;
+let _breaker  = "CLOSED";
+let _score    = 0.0;
+let _phase    = "nominal";
+let _feedRows = [];
+let _auditRows = [];
+let _budgets  = Object.assign({}, _budgetInitial);
+let _telem    = { gpu: 0, api: 0, db: 0, queue: 0, err: 0 };
+let _points   = [];    // [{proposed, enforced, decision}]
+let _summary  = null;
+let _totalApprove = 0, _totalProject = 0, _totalReject = 0;
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Budget bars                                                                 */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+const _budgetMeta = {
+  gpu_shift:          { label: "GPU seconds",    unit: "s",   color: "#7c7cf8" },
+  external_api_shift: { label: "API calls",      unit: "req", color: "#60a5fa" },
+  mutation_shift:     { label: "Mutations",      unit: "ops", color: "#f472b6" },
+};
+
+function initBudgetBars() {
+  const el = document.getElementById("budgets");
+  el.innerHTML = "";
+  for (const key of Object.keys(_budgetInitial)) {
+    const m = _budgetMeta[key] || { label: key, unit: "", color: "#7c7cf8" };
+    el.innerHTML += `
+      <div class="budget-item" id="budget-item-${key}">
+        <div class="budget-label-row">
+          <span class="budget-name">${m.label}</span>
+          <span class="budget-vals" id="bv-${key}">–</span>
+        </div>
+        <div class="budget-bar-track">
+          <div class="budget-bar-fill" id="bb-${key}" style="width:100%;background:${m.color}"></div>
+        </div>
+      </div>`;
+  }
+}
+
+function updateBudgets(remaining) {
+  for (const [key, val] of Object.entries(remaining)) {
+    const init  = _budgetInitial[key] || 1;
+    const pct   = Math.max(0, Math.min(100, (val / init) * 100));
+    const meta  = _budgetMeta[key] || { unit: "" };
+    const fill  = document.getElementById("bb-" + key);
+    const label = document.getElementById("bv-" + key);
+    if (!fill || !label) continue;
+    fill.style.width = pct + "%";
+    fill.style.background = pct > 40 ? (meta.color || "#7c7cf8")
+                          : pct > 15 ? "#fb923c"
+                          : "#f87171";
+    label.textContent = val.toFixed(1) + " " + (meta.unit || "");
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Telemetry gauges                                                            */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+const _telemFields = [
+  { key: "gpu",   label: "GPU util" },
+  { key: "api",   label: "API util" },
+  { key: "db",    label: "DB util"  },
+  { key: "queue", label: "Queue util" },
+  { key: "err",   label: "Error rate %", scale: 100 },
+];
+
+function initTelemGauges() {
+  const el = document.getElementById("telemetry");
+  el.innerHTML = "";
+  for (const f of _telemFields) {
+    el.innerHTML += `
+      <div class="telem-item">
+        <div class="telem-label-row">
+          <span class="telem-name">${f.label}</span>
+          <span class="telem-val" id="tv-${f.key}">–</span>
+        </div>
+        <div class="telem-bar-track">
+          <div class="telem-bar-fill" id="tb-${f.key}" style="width:0%"></div>
+        </div>
+      </div>`;
+  }
+}
+
+function updateTelemetry(t) {
+  for (const f of _telemFields) {
+    const raw  = t[f.key] ?? 0;
+    const disp = f.scale ? raw : raw;
+    const pct  = f.scale ? Math.min(100, raw / (f.scale / 100)) : Math.min(100, raw * 100);
+    const fill  = document.getElementById("tb-" + f.key);
+    const label = document.getElementById("tv-" + f.key);
+    if (!fill || !label) continue;
+    fill.style.width = pct + "%";
+    fill.style.background = pct < 50 ? "#4ade80"
+                           : pct < 70 ? "#facc15"
+                           : pct < 85 ? "#fb923c"
+                           : "#f87171";
+    label.textContent = f.scale ? raw.toFixed(2) + "%" : (raw * 100).toFixed(1) + "%";
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Overload score                                                              */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+function updateOverload(score) {
+  _score = score;
+  const pct  = Math.min(100, score * 100);
+  const big  = document.getElementById("overload-score-big");
+  const fill = document.getElementById("overload-bar-fill");
+  big.textContent = score.toFixed(3);
+  fill.style.width = pct + "%";
+  const color = score < 0.40 ? "#4ade80"
+              : score < 0.50 ? "#a3e635"
+              : score < 0.65 ? "#facc15"
+              : score < 0.80 ? "#fb923c"
+              : "#f87171";
+  big.style.color  = color;
+  fill.style.background = color;
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Breaker badge                                                               */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+function updateBreaker(mode) {
+  _breaker = mode;
+  const badge = document.getElementById("breaker-badge");
+  const dot   = document.getElementById("breaker-dot");
+  const text  = document.getElementById("breaker-text");
+  badge.className = "breaker-badge breaker-" + mode;
+  dot.className   = "dot dot-" + mode;
+  text.textContent = mode.replace("_", " ");
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Enforcement feed                                                            */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+const feedEl = document.getElementById("feed-body");
+const MAX_FEED = 80;
+
+function addFeedItem(ev) {
+  const row = document.createElement("div");
+  row.className = "feed-item";
+  const cls = "decision-" + ev.decision;
+  row.innerHTML =
+    `<span class="feed-step">${ev.step}</span>` +
+    `<span class="feed-phase">${ev.phase}</span>` +
+    `<span class="feed-decision ${cls}">${ev.decision}</span>` +
+    `<span class="feed-hash">${ev.audit_hash || ""}</span>`;
+  feedEl.prepend(row);
+
+  // Trim
+  while (feedEl.children.length > MAX_FEED) {
+    feedEl.removeChild(feedEl.lastChild);
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Audit chain panel                                                           */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+const auditEl = document.getElementById("audit-body");
+const MAX_AUDIT = 50;
+
+function addAuditItem(ev) {
+  const cls = ev.decision === "APPROVE" ? "approve"
+            : ev.decision === "PROJECT" ? "project"
+            : "reject";
+  const item = document.createElement("div");
+  item.className = "audit-item " + cls;
+  item.innerHTML =
+    `<div class="audit-header">` +
+      `<span class="audit-id">${ev.action_id}</span>` +
+      `<span class="audit-mode">${ev.breaker_mode}</span>` +
+    `</div>` +
+    `<div class="audit-hash">${ev.audit_hash || "–"}</div>`;
+  auditEl.prepend(item);
+  while (auditEl.children.length > MAX_AUDIT) {
+    auditEl.removeChild(auditEl.lastChild);
+  }
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 2D Feasible region canvas                                                  */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+const canvas  = document.getElementById("feasible-canvas");
+const ctx     = canvas.getContext("2d");
+const MAX_PTS = 80;
+
+// Axis: x = gpu_seconds (0–100), y = external_api_calls (0–20)
+const AXIS = { xKey: "gpu_seconds", yKey: "external_api_calls", xMax: 100, yMax: 20 };
+
+function resizeCanvas() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width  = rect.width - 28;
+  canvas.height = 200;
+  redrawCanvas();
+}
+
+function worldToCanvas(wx, wy) {
+  const pad = 36;
+  const W = canvas.width  - pad * 2;
+  const H = canvas.height - pad * 2 - 10;
+  const cx = pad + (wx / AXIS.xMax) * W;
+  const cy = canvas.height - pad - 10 - (wy / AXIS.yMax) * H;
+  return [cx, cy];
+}
+
+function redrawCanvas() {
+  const W = canvas.width, H = canvas.height;
+  const pad = 36;
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = "#07070e";
+  ctx.fillRect(0, 0, W, H);
+
+  const dW = W - pad * 2;
+  const dH = H - pad * 2 - 10;
+
+  // Grid lines
+  ctx.strokeStyle = "#1a1a28";
+  ctx.lineWidth   = 1;
+  for (let i = 0; i <= 4; i++) {
+    const x = pad + (i / 4) * dW;
+    ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, H - pad - 10); ctx.stroke();
+  }
+  for (let i = 0; i <= 4; i++) {
+    const y = pad + (i / 4) * dH;
+    ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = "#3a3a52";
+  ctx.lineWidth   = 1.5;
+  ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, H - pad - 10); ctx.lineTo(W - pad, H - pad - 10); ctx.stroke();
+
+  // Axis labels
+  ctx.fillStyle = "#6868a0";
+  ctx.font      = "10px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "center";
+  for (let i = 0; i <= 4; i++) {
+    const v  = (AXIS.xMax / 4) * i;
+    const x  = pad + (i / 4) * dW;
+    ctx.fillText(v, x, H - 8);
+  }
+  ctx.textAlign = "right";
+  for (let i = 0; i <= 4; i++) {
+    const v = (AXIS.yMax / 4) * i;
+    const y = H - pad - 10 - (i / 4) * dH;
+    ctx.fillText(v, pad - 4, y + 4);
+  }
+
+  // Axis titles
+  ctx.fillStyle = "#6868a0";
+  ctx.font      = "10px " + getComputedStyle(document.body).fontFamily;
+  ctx.textAlign = "center";
+  ctx.fillText("GPU seconds", W / 2, H - 2);
+  ctx.save();
+  ctx.translate(10, H / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText("External API calls", 0, 0);
+  ctx.restore();
+
+  // Points
+  for (let i = 0; i < _points.length; i++) {
+    const p = _points[i];
+    const alpha = 0.3 + 0.7 * (i / _points.length);
+
+    // Proposed (hollow circle)
+    const [px, py] = worldToCanvas(p.proposed[AXIS.xKey] || 0, p.proposed[AXIS.yKey] || 0);
+    ctx.globalAlpha = alpha * 0.5;
+    ctx.strokeStyle = "#6868a0";
+    ctx.lineWidth   = 1;
+    ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2); ctx.stroke();
+
+    // Enforced (filled)
+    const [ex, ey] = worldToCanvas(p.enforced[AXIS.xKey] || 0, p.enforced[AXIS.yKey] || 0);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle   = p.decision === "APPROVE" ? "#4ade80"
+                    : p.decision === "PROJECT" ? "#facc15"
+                    : "#f87171";
+    ctx.beginPath(); ctx.arc(ex, ey, 4, 0, Math.PI * 2); ctx.fill();
+
+    // Line from proposed to enforced
+    if (p.decision === "PROJECT") {
+      ctx.globalAlpha = alpha * 0.4;
+      ctx.strokeStyle = "#facc15";
+      ctx.lineWidth   = 1;
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(ex, ey); ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // Legend
+  const lx = W - pad - 10, ly = pad + 14;
+  const leg = [["APPROVE","#4ade80"],["PROJECT","#facc15"],["REJECT","#f87171"]];
+  ctx.font = "10px " + getComputedStyle(document.body).fontFamily;
+  for (let i = 0; i < leg.length; i++) {
+    const [label, color] = leg[i];
+    const y = ly + i * 16;
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(lx - 60, y, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#6868a0";
+    ctx.textAlign = "left";
+    ctx.fillText(label, lx - 52, y + 4);
+  }
+}
+
+function addCanvasPoint(ev) {
+  _points.push({ proposed: ev.proposed, enforced: ev.enforced, decision: ev.decision });
+  if (_points.length > MAX_PTS) _points.shift();
+  redrawCanvas();
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Summary overlay                                                             */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+function showSummary() {
+  const total = _totalApprove + _totalProject + _totalReject;
+  const rows = [
+    ["Total steps",    total],
+    ["APPROVE",        _totalApprove + " (" + (total ? ((_totalApprove/total)*100).toFixed(1) : "–") + "%)"],
+    ["PROJECT",        _totalProject + " (" + (total ? ((_totalProject/total)*100).toFixed(1) : "–") + "%)"],
+    ["REJECT",         _totalReject  + " (" + (total ? ((_totalReject/total)*100).toFixed(1)  : "–") + "%)"],
+    ["Final phase",    _phase],
+    ["Breaker mode",   _breaker],
+    ["Overload score", _score.toFixed(3)],
+  ];
+  const el = document.getElementById("summary-rows");
+  el.innerHTML = rows.map(([l,v]) =>
+    `<div class="summary-row"><span class="label">${l}</span><span class="value">${v}</span></div>`
+  ).join("");
+  document.getElementById("summary-overlay").classList.add("visible");
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* WebSocket                                                                   */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+const connDot   = document.getElementById("conn-dot");
+const connLabel = document.getElementById("conn-label");
+
+function setConnected(ok) {
+  connDot.className   = ok ? "connected" : "disconnected";
+  connLabel.textContent = ok ? "live" : "reconnecting…";
+}
+
+function handleEvent(ev) {
+  if (ev.type === "ping") return;
+
+  if (ev.type === "finished") {
+    showSummary();
+    return;
+  }
+
+  if (ev.type === "state") {
+    updateBreaker(ev.breaker_mode || "CLOSED");
+    updateOverload(ev.overload_score || 0);
+    if (ev.budget_remaining) updateBudgets(ev.budget_remaining);
+    document.getElementById("phase-name").textContent = ev.phase || "–";
+    return;
+  }
+
+  if (ev.type === "enforcement") {
+    _step = ev.step;
+    _phase = ev.phase;
+
+    updateBreaker(ev.breaker_mode);
+    updateOverload(ev.overload_score);
+    if (ev.budget_remaining) updateBudgets(ev.budget_remaining);
+    if (ev.telemetry)        updateTelemetry(ev.telemetry);
+
+    document.getElementById("phase-name").textContent = ev.phase;
+
+    addFeedItem(ev);
+    addAuditItem(ev);
+    addCanvasPoint(ev);
+
+    if (ev.decision === "APPROVE") _totalApprove++;
+    else if (ev.decision === "PROJECT") _totalProject++;
+    else _totalReject++;
+  }
+}
+
+function connect() {
+  const ws = new WebSocket("ws://127.0.0.1:8000/ws");
+
+  ws.onopen = () => {
+    setConnected(true);
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      handleEvent(JSON.parse(e.data));
+    } catch (err) {
+      console.warn("WS parse error", err);
+    }
+  };
+
+  ws.onclose = () => {
+    setConnected(false);
+    setTimeout(connect, 2000);
+  };
+
+  ws.onerror = () => {
+    ws.close();
+  };
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Init                                                                        */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+window.addEventListener("DOMContentLoaded", () => {
+  initBudgetBars();
+  initTelemGauges();
+  resizeCanvas();
+  window.addEventListener("resize", resizeCanvas);
+  connect();
+});
+</script>
+</body>
+</html>
