@@ -77,7 +77,7 @@ packages/numerail/
 | Python | ≥ 3.9 |
 | Dependencies | numpy ≥ 1.21, scipy ≥ 1.7 |
 | License | MIT |
-| Tests | 253 passing |
+| Tests | 265 passing |
 | Proof checks | 3,732 passing |
 
 Provides the enforcement guarantee, four convex constraint types (linear,
@@ -100,7 +100,7 @@ packages/numerail_ext/
 | Python | ≥ 3.10 |
 | Dependencies | numerail ≥ 5.0.0, numpy ≥ 1.21, scipy ≥ 1.7 |
 | License | MIT |
-| Tests | 217 passing |
+| Tests | 306 passing |
 
 Provides the breaker state machine, `IncidentCommanderTransitionModel`,
 `StateTransitionGovernor`, global default policy pack, and
@@ -144,7 +144,7 @@ pip install -e .
 ## Verification
 
 ```bash
-# Core — full test suite (253 tests)
+# Core — full test suite (265 tests)
 cd packages/numerail && pytest tests/ -v
 
 # Core — guarantee certification only (46 tests)
@@ -162,7 +162,7 @@ cd packages/numerail/proof && coqc Guarantee.v
 # Core — Lean 4 machine-checked proof (12 theorems, 0 sorry) — requires Lean 4 + Mathlib
 cd packages/numerail/proof && lake env lean Guarantee.lean
 
-# Ext — full test suite (207 tests)
+# Ext — full test suite (306 tests)
 cd packages/numerail_ext && pytest tests/ -v
 
 # Ext — integration tests only (10 tests, exercises full governor lifecycle)
@@ -187,7 +187,7 @@ numerail/                        ← repository root
         local.py                 ← in-memory local mode
         protocols.py             ← typed Protocol interfaces
         errors.py                ← production-layer exceptions
-      tests/                     ← 253 tests
+      tests/                     ← 265 tests
         test_guarantee.py        ← 46 certification tests (proof/PROOF.md §Theorem 1–9)
         test_mathematical_guarantees.py ← 99 guarantee analysis tests (one per proof claim)
       proof/                     ← PROOF.md + verify_proof.py (3,732 checks) + Guarantee.v + Guarantee.lean
@@ -211,7 +211,7 @@ numerail/                        ← repository root
         local_backend.py         ← LocalNumerailBackend
         validation.py            ← validate_receipt_against_grant()
         types.py                 ← shared data types and Protocols
-      tests/                     ← 217 tests
+      tests/                     ← 306 tests
         test_integration.py      ← 10 integration tests (full governor lifecycle)
   .github/workflows/             ← CI
   .gitignore

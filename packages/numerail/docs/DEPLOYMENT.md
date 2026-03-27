@@ -145,6 +145,17 @@ in float64 fields.
 | `state_version` | Monotone counter preventing replay attacks using older state |
 | `disturbance_margins` | If agent-controlled, can be set to zero, eliminating safety margins |
 
+> **Note — global default policy field names.** The table above uses conceptual names to describe the *categories* of fields that must be server-authoritative in any production deployment. If you are using `numerail_ext`'s `build_global_default()` policy, the 17 concrete trusted field names are those defined in `numerail_ext.survivability.global_default` as `TRUSTED_FIELDS` (the union of `SEQUENCING_FIELDS`, `STATE_FIELDS`, `RESERVE_FIELDS`, and `MARGIN_FIELDS`):
+>
+> | Category | Fields (4) |
+> |----------|------------|
+> | Sequencing | `state_version`, `observed_at_ns`, `min_required_state_version`, `expires_at_ns` |
+> | Live state | `current_gpu_util`, `current_api_util`, `current_db_util`, `current_queue_util`, `current_error_rate_pct` |
+> | Controller reserves | `ctrl_gpu_reserve_seconds`, `ctrl_api_reserve_calls`, `ctrl_parallel_reserve`, `ctrl_cloud_mutation_reserve` |
+> | Disturbance margins | `gpu_disturbance_margin_seconds`, `api_disturbance_margin_calls`, `db_disturbance_margin_pct`, `queue_disturbance_margin_pct` |
+>
+> Custom policies built directly on the core `numerail` package use whatever field names your schema defines — the conceptual guidance in the table above applies regardless of naming convention.
+
 #### Implementing a production TrustedContextProvider
 
 ```python
