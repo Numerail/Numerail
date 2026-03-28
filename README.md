@@ -320,6 +320,8 @@ packages/
       hello_world.py           ← 14-step full-stack smoke test
       HELLO_WORLD_REPORT.md    ← verified performance report
       live_demo/               ← real-time proof of concept (localhost, no API key)
+      recursive_shutdown.py    ← three-level recursive enforcement → guaranteed shutdown
+      RECURSIVE_SHUTDOWN.md    ← architecture and walkthrough
   numerail_ext/                ← survivability extension
     src/numerail_ext/survivability/
       breaker.py               ← BreakerStateMachine (5 modes, hysteretic transitions)
@@ -418,6 +420,7 @@ None of this is unique to Numerail. Every rule-based governance system in every 
 | Performance benchmarks | [`packages/numerail/tests/BENCHMARK_REPORT.md`](packages/numerail/tests/BENCHMARK_REPORT.md) |
 | Hello world report | [`packages/numerail/examples/HELLO_WORLD_REPORT.md`](packages/numerail/examples/HELLO_WORLD_REPORT.md) |
 | Regulatory bodies | [`packages/numerail/docs/REGULATORY.md`](packages/numerail/docs/REGULATORY.md) |
+| Recursive shutdown | [`packages/numerail/examples/RECURSIVE_SHUTDOWN.md`](packages/numerail/examples/RECURSIVE_SHUTDOWN.md) |
 | Changelog | [`CHANGELOG.md`](CHANGELOG.md) |
 
 ---

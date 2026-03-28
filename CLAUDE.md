@@ -70,6 +70,8 @@ numerail-repo/                       ← repository root (tagged v5.0.0 / ext v0
         rest_api_server.py           ← FastAPI server wrapping NumerailSystemLocal (3 endpoints)
         rest_api_client.py           ← stdlib-only client exercising all three server endpoints
         live_demo/                   ← self-contained real-time demo (FastAPI + WebSocket dashboard)
+        recursive_shutdown.py        ← three-level recursive enforcement → guaranteed shutdown
+        RECURSIVE_SHUTDOWN.md        ← architecture and walkthrough
           simulate.py                ← scripted 5-phase simulation generator (no LLM key required)
           backend.py                 ← FastAPI backend on localhost:8000, WebSocket event stream
           dashboard.html             ← self-contained dark-theme SPA (no external CDN)
