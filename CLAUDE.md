@@ -72,6 +72,8 @@ numerail-repo/                       ← repository root (tagged v5.0.0 / ext v0
         live_demo/                   ← self-contained real-time demo (FastAPI + WebSocket dashboard)
         recursive_shutdown.py        ← three-level recursive enforcement → guaranteed shutdown
         RECURSIVE_SHUTDOWN.md        ← architecture and walkthrough
+        paperclip_maximizer.py       ← canonical misaligned-AI example → 12 fields, 4 forbidden, breaker cascade
+        PAPERCLIP_MAXIMIZER.md       ← scenario walkthrough and architecture
           simulate.py                ← scripted 5-phase simulation generator (no LLM key required)
           backend.py                 ← FastAPI backend on localhost:8000, WebSocket event stream
           dashboard.html             ← self-contained dark-theme SPA (no external CDN)

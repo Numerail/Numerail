@@ -322,6 +322,8 @@ packages/
       live_demo/               ← real-time proof of concept (localhost, no API key)
       recursive_shutdown.py    ← three-level recursive enforcement → guaranteed shutdown
       RECURSIVE_SHUTDOWN.md    ← architecture and walkthrough
+      paperclip_maximizer.py   ← canonical misaligned-AI example → 12 fields, 4 forbidden, breaker cascade
+      PAPERCLIP_MAXIMIZER.md   ← scenario walkthrough and architecture
   numerail_ext/                ← survivability extension
     src/numerail_ext/survivability/
       breaker.py               ← BreakerStateMachine (5 modes, hysteretic transitions)
@@ -421,6 +423,7 @@ None of this is unique to Numerail. Every rule-based governance system in every 
 | Hello world report | [`packages/numerail/examples/HELLO_WORLD_REPORT.md`](packages/numerail/examples/HELLO_WORLD_REPORT.md) |
 | Regulatory bodies | [`packages/numerail/docs/REGULATORY.md`](packages/numerail/docs/REGULATORY.md) |
 | Recursive shutdown | [`packages/numerail/examples/RECURSIVE_SHUTDOWN.md`](packages/numerail/examples/RECURSIVE_SHUTDOWN.md) |
+| Paperclip maximizer | [`packages/numerail/examples/PAPERCLIP_MAXIMIZER.md`](packages/numerail/examples/PAPERCLIP_MAXIMIZER.md) |
 | Changelog | [`CHANGELOG.md`](CHANGELOG.md) |
 
 ---
